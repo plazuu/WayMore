@@ -1,0 +1,48 @@
+[
+  {
+    "id": "demo-kaseya-center",
+    "name": "Kaseya Center",
+    "kind": "landmark",
+    "tagline": "Home of the Miami Heat",
+    "category": "arena",
+    "description": "Waterfront arena on Biscayne Bay in downtown Miami that hosts Miami Heat basketball games and major concerts.",
+    "facts": [
+      "Home arena of the NBA's Miami Heat.",
+      "Sits on the edge of Biscayne Bay in downtown Miami.",
+      "Opened in 1999."
+    ],
+    "lat": 25.7814,
+    "lng": -80.1870,
+    "side": "right"
+  },
+  {
+    "id": "demo-bayside-marketplace",
+    "name": "Bayside Marketplace",
+    "kind": "landmark",
+    "category": "shopping and dining",
+    "description": "Open-air waterfront shopping and dining center on Biscayne Bay, a starting point for many Miami boat tours.",
+    "facts": [
+      "Open-air market on the Biscayne Bay waterfront.",
+      "Many sightseeing boat tours leave from its marina.",
+      "Opened in 1987."
+    ],
+    "lat": 25.7785,
+    "lng": -80.1868,
+    "side": "right"
+  },
+  {
+    "id": "demo-freedom-tower",
+    "name": "Freedom Tower",
+    "kind": "landmark",
+    "category": "historic site",
+    "description": "Mediterranean Revival tower on Biscayne Boulevard, built in 1925 for the Miami News.",
+    "facts": [
+      "Built in 1925 as the headquarters of the Miami News.",
+      "From 1962 to 1974 it processed Cuban refugees, earning the nickname the Ellis Island of the South.",
+      "Designated a National Historic Landmark in 2008."
+    ],
+    "lat": 25.7797,
+    "lng": -80.1897,
+    "side": "left"
+  }
+]
