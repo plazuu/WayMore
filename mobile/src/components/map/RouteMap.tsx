@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import MapView, { Polyline, type MapPressEvent } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,6 +39,7 @@ export function RouteMap({
 }: RouteMapProps) {
   const mapRef = useRef<MapView>(null);
   const insets = useSafeAreaInsets();
+  const [mapReady, setMapReady] = useState(false);
 
   // Frame the whole route whenever it changes or the sheet resizes.
   useEffect(() => {
@@ -63,8 +64,10 @@ export function RouteMap({
       ref={mapRef}
       style={StyleSheet.absoluteFill}
       initialRegion={DEFAULT_MAP_REGION}
-      // Keeps Google's logo and fitted content out from under the sheet and status bar.
-      mapPadding={{ top: insets.top, right: 0, bottom: bottomInset, left: 0 }}
+      onMapReady={() => setMapReady(true)}
+      // Withheld until the native map exists — on Fabric, setting this at initial mount
+      // crashes with a NullPointerException because the GoogleMap object isn't ready yet.
+      mapPadding={mapReady ? { top: insets.top, right: 0, bottom: bottomInset, left: 0 } : undefined}
       onPress={handleMapPress}
       showsPointsOfInterests={false}
       showsCompass={false}
