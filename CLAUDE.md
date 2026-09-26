@@ -9,7 +9,7 @@ A mobile app that finds the most scenic route between two points, surfaces nearb
 ## Repo layout — three separate services, three separate dependency trees
 
 - **`mobile/`** — Expo (React Native + TypeScript) client. Currently the stock `create-expo-app` blank-typescript template; not yet wired to any backend. Has its own `AGENTS.md`/`CLAUDE.md` (Expo's own agent guidance, imported via `@AGENTS.md`) — read that when working inside `mobile/`, since it covers Expo-SDK-version drift, Expo Router conventions, and EAS build commands that don't apply anywhere else in this repo.
-- **`server/`** — Node/Express + TypeScript API. This is the backend the mobile app talks to; it in turn holds the Google Maps Platform key server-side (Places, Routes, Geocoding, Photos) so the key is never shipped in the mobile bundle. Currently only exposes `GET /health`; the real `/geocode` and `/route` endpoints from TODO.md M1 don't exist yet.
+- **`server/`** — Node/Express + TypeScript API. This is the backend the mobile app talks to; it in turn holds the Google Maps Platform key server-side (Places, Routes, Geocoding, Photos) so the key is never shipped in the mobile bundle. Currently exposes `GET /health` and the narration endpoints (`POST /narration`, `POST /narration/pregenerate`, static `/audio/*.mp3`; see `docs/narration-api.md`); the real `/geocode` and `/route` endpoints from TODO.md M1 don't exist yet. Narration (Gemini script + Speechify/ElevenLabs TTS, disk cache) lives in `server/src/narration/` and `server/src/services/`, not in `backend/`.
 - **`backend/`** — reserved for the future LLM/narration service (TODO.md M3, live tour-guide narration). `backend/main.py` is currently an empty placeholder — do not repurpose it for the Express API above.
 
 Each of the three has independent dependencies/lockfiles; there is no shared `node_modules` or monorepo tooling (no workspaces/turborepo) tying them together.
@@ -30,9 +30,11 @@ npx tsc --noEmit              # typecheck
 npm run dev    # tsx watch src/index.ts — hot-reload dev server
 npm run build  # tsc -> dist/
 npm run start  # node dist/index.js — run compiled build
-npx tsc --noEmit  # typecheck only
+npm run typecheck # tsc on src + test
+npm test          # node:test via tsx (test/*.test.ts)
+npm run pregen:narration  # pregenerate narration for data/demo-places.json
 ```
-Copy `server/.env.example` to `server/.env` and fill in `GOOGLE_MAPS_API_KEY` before running. No test runner is configured yet in either package.
+Copy `server/.env.example` to `server/.env` and fill in `GOOGLE_MAPS_API_KEY` before running. Narration runs in mock mode (template lines, no audio) when `GEMINI_API_KEY` / the TTS key are missing. `mobile/` has no test runner yet.
 
 ## Architecture / data flow (per TODO.md, not all built yet)
 
