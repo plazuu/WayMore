@@ -31,15 +31,15 @@ Branch: `feature/route-scoring`
 Branch: `feature/mobile-map`
 *Depends on M1*
 
-- [ ] Start/end input screen with Places Autocomplete
-- [ ] Map screen (`react-native-maps`) rendering polyline + POI pins
-- [ ] Normal/Scenic toggle — switches which route object from the single `/route` response is rendered (no second request needed); show `extraTimeSeconds` as "+N min" next to the toggle
-- [ ] Distinct pin icon/color for landmarks vs. food stops
-- [ ] Filter toggle in UI — "Show: Landmarks / Food / Both"
-- [ ] Landmark detail card on pin tap — photo + description
-- [ ] Restaurant detail card — cuisine, price level, blurb, photo
-- [ ] Loading/error states while backend computes the route
-- [ ] Dev setting: slider/input for POI sampling interval + search radius (passes `sampleIntervalMeters`/`searchRadiusMeters` to `POST /route`) — for testing landmark density vs. API cost tradeoffs, not a user-facing feature
+- [ ] Start/end input screen with Places Autocomplete — input sheet done (`mobile/src/components/sheets/PlanTripSheet.tsx`, plain text); autocomplete still needs a server proxy endpoint
+- [x] Map screen (`react-native-maps`) rendering polyline + POI pins — `mobile/src/components/map/`. Map tiles need a dev build with `GOOGLE_MAPS_ANDROID_API_KEY` (Expo Go's key is rejected), see `mobile/README.md`
+- [x] Normal/Scenic toggle — switches which route object from the single `/route` response is rendered (no second request needed); show `extraTimeSeconds` as "+N min" next to the toggle
+- [x] Distinct pin icon/color for landmarks vs. food stops
+- [x] Filter toggle in UI — "Show: Landmarks / Food / Both"
+- [x] Landmark detail card on pin tap — photo + description
+- [x] Restaurant detail card — cuisine, price level, blurb, photo
+- [x] Loading/error states while backend computes the route
+- [x] Dev setting: slider/input for POI sampling interval + search radius (passes `sampleIntervalMeters`/`searchRadiusMeters` to `POST /route`) — for testing landmark density vs. API cost tradeoffs, not a user-facing feature
 
 ## M3 — Live tour guide
 Branch: `live-guide`
@@ -57,17 +57,24 @@ Narration service (`backend/`; `backend/src/live/`, `backend/src/routes/tour.ts`
 - [x] Chat agent — `POST /tour/chat` with car position, last 3 narrations, nearby places and last 10 turns as context; web search with `sources` (OpenAI `web_search`); server-side `placeId`; 12 s timeout fallback
 - [x] All timings and model names in one place (`LIVE_GUIDE` / `llmConfig` in `backend/src/config.ts`)
 - [x] `GET /dev/demo-path` + `npm run replay:drive` (simulated drive past Bayside Marketplace, Freedom Tower, Kaseya Center)
-- [x] One base URL for the app: `server/` proxies `/tour`, `/audio`, `/dev` to `backend/` (streamed, 20 s timeout, `502 backend_unavailable`), `/health` shows the backend's status, `npm run dev:all` starts both; one tunnel, `PUBLIC_BASE_URL` = the `server/` tunnel URL
+- [x] One base URL for the app: `server/` proxies `/tour`, `/narration`, `/audio`, `/dev` to `backend/` (streamed, 20 s timeout or 120 s for `/narration`, `502 backend_unavailable`), `/health` shows the backend's status, `npm run dev:all` starts both; one tunnel, `PUBLIC_BASE_URL` = the `server/` tunnel URL
 - [x] LLM is OpenAI (switched from Gemini for cost; Gemini support removed): `gpt-4.1-nano` for narration (most natural spoken lines, ~1 s), `gpt-4o-mini` for chat (supports `web_search`, cites sources, ~3 s). Chosen by benchmarking the key's mini/nano models
 - [ ] Chat `placeId` only matches place names; a reply that says "there" without naming the place gives `null` (could fall back to the last narrated place). The OpenAI chat model usually names the place, so this is rarer now
 
-App (`mobile/`):
-- [ ] Location permission + `expo-location` `watchPosition`; tick loop every ~3 s, awaiting each `/tour/tick`
-- [ ] Playback queue — one clip at a time, never overlapping; caption (or `expo-speech`) when `audioUrl` is null
-- [ ] "Now touring" UI — place name + side banner, mute toggle
+App (`mobile/`), current tour mode (pregenerated narration via `/narration/pregenerate`, proximity on the phone):
+- [x] Location permission + `expo-location` `watchPosition` — plus a simulated drive for emulators (`mobile/src/features/tour/usePosition.ts`); GPS path not yet tested on a real device
+- [x] Proximity engine — distance + bearing check per POI (only trigger when ahead of you, not behind)
+- [x] Narration queue — sequential playback, mark POI "visited" so it never re-triggers
+- [x] TTS playback — plays server MP3s (`expo-audio`) when `audioUrl` is set, falls back to `expo-speech`
+- [x] Narration tone: landmarks = informative, food stops = suggestion ("coming up on your right...")
+- [x] "Now touring" UI — current/next POI banner, mute toggle (landmarks and food stops mutable separately)
+
+App (`mobile/`), moving to the live guide (`docs/api.md`):
+- [ ] Tick loop every ~3 s calling `/tour/tick` (awaiting each), replacing on-phone proximity + pregenerate
 - [ ] Chat screen calling `/tour/chat`, sources under replies
 - [ ] `unknown_session` recovery (re-`/tour/start` with the same places)
-- [ ] "Simulated drive" toggle fed by `/dev/demo-path`
+- [ ] Simulated drive via `/dev/demo-path` (its places hit the demo audio cache)
+- [ ] Update `mobile/README.md` and `src/api/types.ts` doc references (`server/API.md` and `docs/narration-api.md` are now `docs/api.md`)
 
 ## M4 — Polish / demo prep
 Branch: `feature/polish`

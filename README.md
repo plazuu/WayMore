@@ -147,6 +147,10 @@ npm test
 npm run typecheck
 ```
 
+## Architecture
+
+See [`docs/architecture.md`](./docs/architecture.md) for diagrams of the system (mobile ↔ server ↔ backend ↔ Google, OpenAI and Speechify) and the route, narration and live guide flows.
+
 ## Contributing
 
 * Every feature should be on its own branch then merged, no push to main.
