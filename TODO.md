@@ -31,8 +31,13 @@ Branch: `feature/route-scoring`
 Branch: `feature/mobile-map`
 *Depends on M1*
 
+<<<<<<< HEAD
 - [ ] Start/end input screen with Places Autocomplete — input sheet done (`mobile/src/components/sheets/PlanTripSheet.tsx`, plain text); autocomplete still needs a server proxy endpoint
 - [x] Map screen (`react-native-maps`) rendering polyline + POI pins — `mobile/src/components/map/`. Map tiles need a dev build with `GOOGLE_MAPS_ANDROID_API_KEY` (Expo Go's key is rejected), see the Mobile app section of `README.md`
+=======
+- [x] Start/end input screen with Places Autocomplete — `mobile/src/components/ui/AddressAutocompleteField.tsx` queries the server's `/autocomplete` proxy (`server/src/routes/autocomplete.ts`), debounced with session tokens
+- [x] Map screen (`react-native-maps`) rendering polyline + POI pins — `mobile/src/components/map/`. Map tiles need a dev build with `GOOGLE_MAPS_ANDROID_API_KEY` (Expo Go's key is rejected), see `mobile/README.md`
+>>>>>>> origin/main
 - [x] Normal/Scenic toggle — switches which route object from the single `/route` response is rendered (no second request needed); show `extraTimeSeconds` as "+N min" next to the toggle
 - [x] Distinct pin icon/color for landmarks vs. food stops
 - [x] Filter toggle in UI — "Show: Landmarks / Food / Both"
@@ -79,10 +84,10 @@ App (`mobile/`), moving to the live guide (`docs/api.md`):
 ## M4 — Polish / demo prep
 Branch: `feature/polish`
 
-- [ ] Handle no-landmarks-found edge case gracefully
-- [ ] Pre-fetch/cache POI data client-side before trip starts (avoids live calls while driving)
-- [ ] App icon, splash screen, basic style pass
-- [ ] Rehearse demo, record backup video in case of live-demo wifi issues (see README "Demo day": `npm run replay:drive -- --real` fills the audio cache)
+- [x] Handle no-landmarks-found edge case gracefully — `RoutePreviewSheet` shows "No landmarks or food stops found along this route." instead of an empty list (`mobile/src/components/sheets/RoutePreviewSheet.tsx`)
+- [ ] Pre-fetch/cache POI data client-side before trip starts (avoids live calls while driving) — not started, no `AsyncStorage`/cache layer in `mobile/src` yet
+- [ ] App icon, splash screen, basic style pass — app icon + Android adaptive icon + favicon are in place (`mobile/assets/`, wired in `app.json`); no `expo-splash-screen` plugin configured yet so there's no real splash screen, and no dedicated style/theming pass beyond the existing component styles
+- [ ] Rehearse demo, record backup video in case of live-demo wifi issues (see README "Demo day": `npm run replay:drive -- --real` fills the audio cache) — not started
 
 ## Stretch (only if time remains)
 

@@ -40,6 +40,7 @@ export default function MapScreen() {
   const [sheetHeight, setSheetHeight] = useState(0);
 
   const touring = state.phase === 'touring';
+  const narrationMuted = !settings.narrateLandmarks && !settings.narrateFood;
   const { position, error: locationError } = usePosition({
     enabled: touring,
     simulate: settings.simulateDrive,
@@ -153,10 +154,27 @@ export default function MapScreen() {
       )}
 
       {touring && (
+<<<<<<< HEAD
         <AskGuideButton
           onPress={() => setChatOpen(true)}
           style={[styles.askGuide, { bottom: sheetHeight + spacing.md }]}
         />
+=======
+        <View style={[styles.topBarRight, { top: insets.top + spacing.sm }]} pointerEvents="box-none">
+          <IconButton
+            icon={narrationMuted ? 'volumeOff' : 'volumeOn'}
+            variant="floating"
+            accessibilityLabel={narrationMuted ? 'Unmute tour guide' : 'Mute tour guide'}
+            onPress={() =>
+              updateSettings(
+                narrationMuted
+                  ? { narrateLandmarks: true, narrateFood: true }
+                  : { narrateLandmarks: false, narrateFood: false },
+              )
+            }
+          />
+        </View>
+>>>>>>> origin/main
       )}
 
       <KeyboardAvoidingView behavior="padding" style={styles.sheetArea} pointerEvents="box-none">
@@ -171,6 +189,10 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   topBar: { position: 'absolute', left: spacing.lg, flexDirection: 'row', gap: spacing.sm },
+<<<<<<< HEAD
   askGuide: { position: 'absolute', right: spacing.lg },
+=======
+  topBarRight: { position: 'absolute', right: spacing.lg, flexDirection: 'row', gap: spacing.sm },
+>>>>>>> origin/main
   sheetArea: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, justifyContent: 'flex-end' },
 });
