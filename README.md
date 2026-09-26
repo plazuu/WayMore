@@ -134,6 +134,10 @@ npm test
 npm run typecheck
 ```
 
+## Architecture
+
+See [`docs/architecture.md`](./docs/architecture.md) for diagrams of the system (mobile ↔ server ↔ Google/Gemini/TTS APIs) and the `/route` and narration request flows.
+
 ## Contributing
 
 * Every feature should be on its own branch then merged, no push to main.
