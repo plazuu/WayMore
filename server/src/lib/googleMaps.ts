@@ -102,7 +102,13 @@ export interface RouteCandidate {
   encodedPolyline: string;
 }
 
-export async function computeRoutes(origin: LatLng, destination: LatLng): Promise<RouteCandidate[]> {
+// `via` are pass-through waypoints (no stop). Google does not allow alternative
+// routes together with waypoints, so a via request returns a single route.
+export async function computeRoutes(
+  origin: LatLng,
+  destination: LatLng,
+  via: LatLng[] = [],
+): Promise<RouteCandidate[]> {
   if (!GOOGLE_MAPS_API_KEY) {
     throw new GoogleMapsError("GOOGLE_MAPS_API_KEY is not configured", 500);
   }
@@ -120,7 +126,10 @@ export async function computeRoutes(origin: LatLng, destination: LatLng): Promis
       travelMode: "DRIVE",
       routingPreference: "TRAFFIC_AWARE",
       polylineQuality: "HIGH_QUALITY",
-      computeAlternativeRoutes: true,
+      computeAlternativeRoutes: via.length === 0,
+      ...(via.length > 0
+        ? { intermediates: via.map((p) => ({ location: { latLng: { latitude: p.lat, longitude: p.lng } }, via: true })) }
+        : {}),
     }),
   });
 

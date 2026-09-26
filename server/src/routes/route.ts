@@ -1,9 +1,11 @@
 import { Router } from "express";
 import { geocodeAddress, computeRoutes, GoogleMapsError, type RouteCandidate } from "../lib/googleMaps";
-import { decodePolyline, sampleAlongPath } from "../lib/polyline";
+import { decodePolyline, sampleAlongPath, haversineMeters } from "../lib/polyline";
 import { searchNearby, dedupeById, LANDMARK_TYPES, FOOD_TYPES, type Poi } from "../lib/places";
 import { scoreCandidate } from "../lib/scoring";
 import { filterLandmarks, filterFoodStops } from "./filter";
+import { curatedOnRoute } from "../lib/curated";
+import { findScenicDetours } from "../lib/detours";
 import {
   DEFAULT_SAMPLE_INTERVAL_METERS,
   MIN_SAMPLE_INTERVAL_METERS,
@@ -11,6 +13,10 @@ import {
   DEFAULT_SEARCH_RADIUS_METERS,
   MIN_SEARCH_RADIUS_METERS,
   MAX_SEARCH_RADIUS_METERS,
+  MAX_LANDMARKS_PER_ROUTE,
+  MAX_EXTRA_MINUTES_LIMIT,
+  MAX_EXTRA_SECONDS_FOR_SCENIC,
+  MAX_EXTRA_FRACTION_FOR_SCENIC,
 } from "../config";
 
 export const routeRouter = Router();
@@ -23,6 +29,7 @@ function parseNumberParam(value: unknown, fallback: number, min: number, max: nu
 }
 
 interface ScoredCandidate extends RouteCandidate {
+  viaIds?: string[];
   samplePointCount: number;
   landmarks: Poi[];
   foodStops: Poi[];
@@ -70,9 +77,28 @@ routeRouter.post("/route", async (req, res) => {
     MAX_SEARCH_RADIUS_METERS,
   );
 
+  // How much longer the user will accept for a more scenic drive, in minutes.
+  const maxExtraMinutes =
+    typeof req.query.maxExtraMinutes === "string"
+      ? parseNumberParam(req.query.maxExtraMinutes, 0, 0, MAX_EXTRA_MINUTES_LIMIT)
+      : undefined;
+
   try {
     const [startGeo, endGeo] = await Promise.all([geocodeAddress(start), geocodeAddress(end)]);
-    const candidates = await computeRoutes(startGeo, endGeo);
+    const baseCandidates = await computeRoutes(startGeo, endGeo);
+    const candidates: Array<RouteCandidate & { viaIds?: string[] }> = [...baseCandidates];
+
+    const fastestBase = baseCandidates.reduce((a, c) => (c.durationSeconds < a.durationSeconds ? c : a));
+    // An explicit maxExtraMinutes (query param) wins; otherwise the default is
+    // the smaller of a fixed cap and a fraction of the fastest trip.
+    const allowedExtra =
+      maxExtraMinutes !== undefined
+        ? maxExtraMinutes * 60
+        : Math.min(MAX_EXTRA_SECONDS_FOR_SCENIC, fastestBase.durationSeconds * MAX_EXTRA_FRACTION_FOR_SCENIC);
+
+    // Cross-reference the hand-picked landmark list against the fastest route and
+    // search for a detour through great ones it misses (see lib/detours.ts).
+    candidates.push(...(await findScenicDetours(startGeo, endGeo, fastestBase, allowedExtra)));
 
     const enrichedCandidates = await Promise.all(
       candidates.map(async (candidate) => {
@@ -84,7 +110,12 @@ routeRouter.post("/route", async (req, res) => {
           Promise.all(samplePoints.map((pt) => searchNearby(pt, searchRadiusMeters, FOOD_TYPES))),
         ]);
 
-        const landmarks = filterLandmarks(dedupeById(landmarkResults.flat()));
+        const curatedStops = curatedOnRoute(points, candidate.viaIds);
+        // Drop Places results that duplicate a curated stop (within ~250 m).
+        const placesLandmarks = filterLandmarks(dedupeById(landmarkResults.flat()), points).filter(
+          (poi) => !curatedStops.some((c) => haversineMeters(c, poi) < 250),
+        );
+        const landmarks = [...curatedStops, ...placesLandmarks].slice(0, MAX_LANDMARKS_PER_ROUTE);
         const foodStops = filterFoodStops(dedupeById(foodResults.flat()));
 
         return {
@@ -100,7 +131,11 @@ routeRouter.post("/route", async (req, res) => {
     const normal = enrichedCandidates.reduce((fastest, c) =>
       c.durationSeconds < fastest.durationSeconds ? c : fastest,
     );
-    const scenic = enrichedCandidates.reduce((best, c) => {
+    // Only routes within the time budget can be "scenic"; otherwise scenic = normal.
+    const withinBudget = enrichedCandidates.filter(
+      (c) => c.durationSeconds - normal.durationSeconds <= allowedExtra,
+    );
+    const scenic = withinBudget.reduce((best, c) => {
       if (c.score > best.score) return c;
       if (c.score === best.score && c.durationSeconds < best.durationSeconds) return c;
       return best;

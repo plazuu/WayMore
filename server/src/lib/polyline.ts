@@ -78,3 +78,31 @@ export function sampleAlongPath(points: LatLng[], intervalMeters: number): LatLn
 
   return samples;
 }
+
+// Shortest distance from `point` to the polyline `path`, measured to the
+// segments (not just the vertices) so long straight stretches are handled.
+// Uses a local flat projection, which is accurate at this scale.
+export function distanceToPathMeters(point: LatLng, path: LatLng[]): number {
+  if (path.length === 0) return Infinity;
+  const R = 6371000;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const cosLat = Math.cos(toRad(point.lat));
+  const project = (p: LatLng) => ({
+    x: toRad(p.lng - point.lng) * cosLat * R,
+    y: toRad(p.lat - point.lat) * R,
+  });
+
+  let best = Infinity;
+  let prev = project(path[0]);
+  best = Math.min(best, Math.hypot(prev.x, prev.y));
+  for (let i = 1; i < path.length; i++) {
+    const curr = project(path[i]);
+    const dx = curr.x - prev.x;
+    const dy = curr.y - prev.y;
+    const lenSq = dx * dx + dy * dy;
+    const t = lenSq === 0 ? 0 : Math.max(0, Math.min(1, -(prev.x * dx + prev.y * dy) / lenSq));
+    best = Math.min(best, Math.hypot(prev.x + t * dx, prev.y + t * dy));
+    prev = curr;
+  }
+  return best;
+}

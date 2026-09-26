@@ -15,6 +15,33 @@ export const MAX_SEARCH_RADIUS_METERS = 2000;
 export const MIN_LANDMARK_RATING = 4.3;
 export const MIN_LANDMARK_REVIEWS = 100;
 export const MAX_LANDMARKS_PER_ROUTE = 8;
+// A landmark only counts if you can plausibly see it from the car. Nature
+// (beaches, parks, marinas) reads from farther away, so it gets more slack.
+export const MAX_LANDMARK_DISTANCE_FROM_ROUTE_METERS = 150;
+export const MAX_NATURE_DISTANCE_FROM_ROUTE_METERS = 300;
+// Hand-picked landmarks (data/landmarks.json). One that is missed by the fastest
+// route but within CURATED_CORRIDOR_METERS of it is trialed as a pass-through
+// waypoint; trial routes over the time budget are dropped before the (more
+// expensive) Places search runs on them.
+export const CURATED_CORRIDOR_METERS = 6000;
+// How many top misses to trial a detour route for (each is one cheap Routes call).
+export const MAX_CURATED_TRIALS = 10;
+// The detour search keeps adding waypoints while the value improves, up to this many.
+export const MAX_CURATED_WAYPOINTS = 3;
+// The search's value = curated score minus this per extra minute, so it prefers
+// the shorter of two similarly scenic routes.
+export const DETOUR_TIME_PENALTY_PER_MINUTE = 0.15;
+// A hand-picked stop counts this many times a Places result of the same rating.
+export const CURATED_SCORE_WEIGHT = 2;
+// A scenic route may cost at most this much extra time over the fastest one:
+// the smaller of a fixed cap and a fraction of the fastest trip.
+export const MAX_EXTRA_SECONDS_FOR_SCENIC = 600;
+export const MAX_EXTRA_FRACTION_FOR_SCENIC = 0.3;
+// Upper bound for the maxExtraMinutes request param on POST /route.
+export const MAX_EXTRA_MINUTES_LIMIT = 60;
+// Scenic scoring multiplier for nature stops, so the scenic route favors
+// driving by a beach or waterfront.
+export const NATURE_SCORE_WEIGHT = 1.5;
 
 export const MIN_FOOD_RATING = 4.3;
 export const MIN_FOOD_REVIEWS = 100;
