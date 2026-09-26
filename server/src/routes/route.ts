@@ -3,6 +3,7 @@ import { geocodeAddress, computeRoutes, GoogleMapsError, type RouteCandidate } f
 import { decodePolyline, sampleAlongPath } from "../lib/polyline";
 import { searchNearby, dedupeById, LANDMARK_TYPES, FOOD_TYPES, type Poi } from "../lib/places";
 import { scoreCandidate } from "../lib/scoring";
+import { filterLandmarks, filterFoodStops } from "./filter";
 import {
   DEFAULT_SAMPLE_INTERVAL_METERS,
   MIN_SAMPLE_INTERVAL_METERS,
@@ -83,8 +84,8 @@ routeRouter.post("/route", async (req, res) => {
           Promise.all(samplePoints.map((pt) => searchNearby(pt, searchRadiusMeters, FOOD_TYPES))),
         ]);
 
-        const landmarks = dedupeById(landmarkResults.flat());
-        const foodStops = dedupeById(foodResults.flat()).filter((poi) => (poi.rating ?? 0) >= 4.0);
+        const landmarks = filterLandmarks(dedupeById(landmarkResults.flat()));
+        const foodStops = filterFoodStops(dedupeById(foodResults.flat()));
 
         return {
           ...candidate,

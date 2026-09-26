@@ -10,6 +10,16 @@ export const DEFAULT_SEARCH_RADIUS_METERS = 500;
 export const MIN_SEARCH_RADIUS_METERS = 100;
 export const MAX_SEARCH_RADIUS_METERS = 2000;
 
+// Quality filters applied to POIs per route (see lib/filter.ts). Raise the
+// minimums or lower the caps for fewer, better stops.
+export const MIN_LANDMARK_RATING = 4.3;
+export const MIN_LANDMARK_REVIEWS = 100;
+export const MAX_LANDMARKS_PER_ROUTE = 8;
+
+export const MIN_FOOD_RATING = 4.3;
+export const MIN_FOOD_REVIEWS = 100;
+export const MAX_FOOD_STOPS_PER_ROUTE = 5;
+
 import path from "node:path";
 
 // Read lazily (on every call) so tests and scripts can adjust process.env
