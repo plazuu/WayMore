@@ -17,7 +17,7 @@ interface PlanTripSheetProps {
 
 /**
  * Start/end entry. Plain text for now: the server has no autocomplete proxy yet
- * (see server/API.md "Not yet built"). To add Places Autocomplete, replace
+ * (docs/api.md lists every endpoint). To add Places Autocomplete, replace
  * `AddressField` with a component that queries a new server endpoint.
  */
 export function PlanTripSheet({ initialStart, initialEnd, onSubmit, onCancel }: PlanTripSheetProps) {

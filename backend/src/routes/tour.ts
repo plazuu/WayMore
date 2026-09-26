@@ -1,6 +1,6 @@
 import express, { Router, type ErrorRequestHandler, type Response } from "express";
 import { audioCacheDir, LIVE_GUIDE } from "../config";
-import { answer, type ChatLlm } from "../live/chat";
+import { answer, type ChatLlm, type RideContext } from "../live/chat";
 import type { LiveNarration, SessionStore, TickInput, TourSession } from "../live/session";
 import { AUDIO_ROUTE } from "../narration/cache";
 import type { Place } from "../types";
@@ -39,6 +39,45 @@ export function publicAudioUrl(url: string | null): string | null {
 
 function isNum(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v);
+}
+
+const MAX_RECENT = 5;
+
+/** Optional `ride` on /tour/chat: the app's own view of the trip. Returns an error message or the parsed value. */
+export function parseRide(value: unknown): { ride?: RideContext; error?: string } {
+  if (value === undefined || value === null) return {};
+  if (typeof value !== "object") return { error: "ride must be an object" };
+  const r = value as Record<string, unknown>;
+  const ride: RideContext = {};
+  if (r.lat !== undefined || r.lng !== undefined) {
+    if (!isNum(r.lat) || !isNum(r.lng) || Math.abs(r.lat) > 90 || Math.abs(r.lng) > 180) {
+      return { error: "ride.lat and ride.lng must be valid coordinates" };
+    }
+    ride.position = { lat: r.lat, lng: r.lng };
+    const heading = r.heading ?? null;
+    if (heading !== null && !isNum(heading)) return { error: "ride.heading must be a number when present" };
+    ride.heading = heading;
+  }
+  if (r.passedPlaceIds !== undefined) {
+    const ids = r.passedPlaceIds;
+    if (!Array.isArray(ids) || ids.length > MAX_PLACES || !ids.every((id) => typeof id === "string")) {
+      return { error: `ride.passedPlaceIds must be an array of at most ${MAX_PLACES} strings` };
+    }
+    ride.passedPlaceIds = ids;
+  }
+  if (r.recent !== undefined) {
+    const recent = r.recent;
+    const valid =
+      Array.isArray(recent) &&
+      recent.every(
+        (n) => n && typeof n === "object" && typeof n.placeId === "string" && typeof n.text === "string",
+      );
+    if (!valid) return { error: "ride.recent must be an array of { placeId, text }" };
+    ride.recent = (recent as { placeId: string; text: string }[])
+      .slice(-MAX_RECENT)
+      .map(({ placeId, text }) => ({ placeId, text: text.slice(0, 600) }));
+  }
+  return { ride };
 }
 
 export interface TourRouterOptions {
@@ -121,9 +160,14 @@ export function createTourRouter({ store, chatLlm, chatTimeoutMs }: TourRouterOp
       fail(res, 400, "message_too_long", `message must be at most ${LIVE_GUIDE.chatMaxMessageChars} characters`);
       return;
     }
+    const { ride, error } = parseRide(req.body?.ride);
+    if (error) {
+      fail(res, 400, "bad_request", error);
+      return;
+    }
     const s = session(res, req.body?.sessionId);
     if (!s) return;
-    res.json(await answer(s, message.trim(), { llm: chatLlm, timeoutMs: chatTimeoutMs, now: store.now }));
+    res.json(await answer(s, message.trim(), { llm: chatLlm, timeoutMs: chatTimeoutMs, now: store.now, ride }));
   });
 
   return router;

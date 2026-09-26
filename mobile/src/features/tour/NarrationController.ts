@@ -28,7 +28,7 @@ interface NarrationControllerOptions {
 
 /**
  * Plays narration one clip at a time, never overlapping, following the rules in
- * docs/narration-api.md. Plain class (not a hook) so the future dialog agent can
+ * "Playing narration" in docs/api.md. Plain class (not a hook) so the future dialog agent can
  * call `pause()` / `resume()` from anywhere.
  *
  * Playback order per clip: server MP3 -> device TTS -> on-screen caption only.

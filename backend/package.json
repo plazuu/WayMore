@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "Narration, live guide and chat service (Gemini + Speechify)",
+  "description": "Narration, live guide and chat service (OpenAI + Speechify)",
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",

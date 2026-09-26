@@ -195,6 +195,11 @@ From `/route`: `landmarks[]` become `kind: "landmark"`, `foodStops[]` become `ki
 ```
 
 - `message`: 1–500 characters. `reply`: 1–4 plain-text sentences in the guide's voice; it knows the car's position, the last 3 narrations, nearby route places and the last 10 turns, so "what was that?" works.
+- `ride` (optional): the app's own view of the trip, for when the app runs the tour itself and doesn't tick this session (the current pregenerated-narration mode):
+  ```json
+  { "lat": 25.7765, "lng": -80.1882, "heading": 12, "passedPlaceIds": ["bayfront"], "recent": [{ "placeId": "bayfront", "text": "On your right is Bayfront Park..." }] }
+  ```
+  All fields optional. It overrides the session's position and narration history for this answer. `passedPlaceIds` (max 200) is authoritative: every other place is listed to the model as not reached yet, so it won't claim you passed it. `recent` keeps the last 5 (only 3 are used). Malformed → `400 bad_request`.
 - `placeId`: the route place the exchange names (nearest to the car wins), or `null`.
 - `sources`: web pages the answer cited; can be empty.
 - Takes ~2–4 s. On failure or after 12 s: `200` with `"reply": "Sorry, I lost my signal for a sec, can you ask again?"` and `sources: []`.
