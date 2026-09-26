@@ -13,7 +13,7 @@ export function geminiConfig() {
   const apiKey = process.env.GEMINI_API_KEY ?? "";
   return {
     apiKey,
-    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+    model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
     // Mock mode is forced on when there's no key, so teammates can run without one.
     mock: flag(process.env.MOCK_LLM) || !apiKey,
   };
@@ -41,6 +41,8 @@ export function ttsConfig() {
     speechify,
     elevenlabs,
     mock: flag(process.env.MOCK_TTS) || !activeKey,
+    // Simultaneous TTS requests. Speechify's base plan allows only 1.
+    concurrency: Math.max(1, Number(process.env.TTS_CONCURRENCY) || 1),
   };
 }
 

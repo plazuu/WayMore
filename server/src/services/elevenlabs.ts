@@ -16,7 +16,8 @@ export async function synthesizeElevenLabs(text: string): Promise<Buffer> {
     signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) {
-    throw new Error(`ElevenLabs ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    const err = new Error(`ElevenLabs ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    throw Object.assign(err, { status: res.status });
   }
   return Buffer.from(await res.arrayBuffer());
 }

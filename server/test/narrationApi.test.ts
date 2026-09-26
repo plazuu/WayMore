@@ -131,3 +131,26 @@ test("changing voice settings changes the cache key", () => {
   process.env.SPEECHIFY_RATE = "+20%";
   assert.notEqual(cacheKey(places[0]), before);
 });
+
+test("TTS requests run one at a time and a 429 is retried", async () => {
+  process.env.MOCK_TTS = "0";
+  process.env.SPEECHIFY_API_KEY = "test-key";
+  let inFlight = 0;
+  let maxInFlight = 0;
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls++;
+    inFlight++;
+    maxInFlight = Math.max(maxInFlight, inFlight);
+    await new Promise((r) => setTimeout(r, 20));
+    inFlight--;
+    if (calls === 1) return new Response("concurrency_limit_reached", { status: 429 });
+    return new Response(JSON.stringify({ audio_data: Buffer.from("ID3").toString("base64") }));
+  }) as typeof fetch;
+
+  const res = await request(createApp()).post("/narration/pregenerate").send({ places }).expect(200);
+  assert.equal(maxInFlight, 1);
+  assert.equal(calls, 4); // 3 places + 1 retry
+  assert.ok(res.body.every((n: Narration) => typeof n.audioUrl === "string"));
+  delete process.env.SPEECHIFY_API_KEY;
+});
