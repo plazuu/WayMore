@@ -7,10 +7,10 @@ Stack assumption: React Native (Expo) + TypeScript for the mobile app, Node/Expr
 ## M0 — Setup
 Branch: `setup/project-init`
 
-- [ ] Init Expo (React Native + TypeScript) app skeleton
-- [ ] Init backend service (Node/Express) folder, env config for secrets
+- [x] Init Expo (React Native + TypeScript) app skeleton — `mobile/`, `react-native-maps`/`expo-location`/`expo-speech` installed
+- [x] Init backend service (Node/Express) folder, env config for secrets — `server/`, `GET /health` boots and responds, `.env.example` in place
 - [ ] Get Google Maps Platform API key — enable Places, Routes, Geocoding, Photos, Places Autocomplete
-- [ ] Confirm branch workflow per README (feature branches → PR into `main`)
+- [x] Confirm branch workflow per README (feature branches → PR into `main`)
 
 ## M1 — Scenic route backend
 Branch: `feature/route-scoring`
