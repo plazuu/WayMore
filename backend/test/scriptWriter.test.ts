@@ -66,6 +66,13 @@ test("passesGuardrails requires the name, a minimum length, and no trailing ques
   assert.ok(!passesGuardrails("On your right is Kaseya Center, ever been to a game?", kaseya));
 });
 
+test("passesGuardrails accepts spelled-out street abbreviations in the name", () => {
+  const cafe: Place = { ...kaseya, name: "Versailles on SW 8th St", kind: "restaurant" };
+  assert.ok(passesGuardrails("Coming up on your left is Versailles on SW 8th Street, a Cuban classic.", cafe));
+  const blvd: Place = { ...kaseya, name: "Biscayne Blvd Park" };
+  assert.ok(passesGuardrails("On your right is Biscayne Boulevard Park, right by the bay.", blvd));
+});
+
 test("durationHint is words / 2.86", () => {
   assert.equal(durationHint(Array(20).fill("w").join(" ")), 7);
 });

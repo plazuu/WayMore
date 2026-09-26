@@ -23,14 +23,24 @@ export function llmSignature(): string {
   return `openai:${llmConfig().narrationModel}`;
 }
 
+/** A 429 or an insufficient_quota error: never worth retrying the same call. */
+export function isRateLimitOrQuota(err: unknown): boolean {
+  const e = err as { status?: number; code?: unknown; type?: unknown; message?: unknown; error?: { code?: unknown; type?: unknown } };
+  if (e?.status === 429) return true;
+  return [e?.code, e?.type, e?.error?.code, e?.error?.type, e?.message].some(
+    (v) => typeof v === "string" && v.includes("insufficient_quota"),
+  );
+}
+
 /**
  * True when a web-search chat call failed because search itself is
  * unavailable (rate limit, quota, or the tool isn't supported for this
- * model/key), so retrying without search is worthwhile.
+ * model/key). The caller then answers without search straight away; the
+ * grounded call is never retried (the client has maxRetries: 0).
  */
 export function isSearchUnavailable(err: unknown): boolean {
+  if (isRateLimitOrQuota(err)) return true;
   const status = (err as { status?: number }).status;
-  if (status === 429) return true;
   const message = String((err as Error)?.message ?? "");
   return (status === 400 || status === 403 || status === 404) && /web_search|tool/i.test(message);
 }
