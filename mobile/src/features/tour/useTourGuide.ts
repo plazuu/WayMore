@@ -1,3 +1,4 @@
+import { setAudioModeAsync } from 'expo-audio';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { resolveServerUrl } from '@/api/client';
@@ -26,10 +27,12 @@ interface UseTourGuideOptions {
 export function useTourGuide({ active, pois, narrations, position, settings }: UseTourGuideOptions) {
   const controllerRef = useRef<NarrationController | null>(null);
   const visitedRef = useRef(new Set<string>());
+  // Last few lines sent to the speaker, for the chat's ride context.
+  const recentRef = useRef<{ placeId: string; text: string }[]>([]);
   const [visitedCount, setVisitedCount] = useState(0);
   const [snapshot, setSnapshot] = useState<NarrationSnapshot>({ current: null, queueLength: 0, paused: false });
 
-  // Latest values for callbacks, per the "read state through a ref" rule in docs/narration-api.md.
+  // Latest values for callbacks, read through refs so the tour effects do not restart on every change.
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
   const narrationsRef = useRef(narrations);
@@ -37,6 +40,8 @@ export function useTourGuide({ active, pois, narrations, position, settings }: U
 
   useEffect(() => {
     if (!active) return;
+    // Otherwise iOS mutes the narration MP3s while the ring/silent switch is on.
+    setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
     const controller = new NarrationController({
       maxQueueWaitMs: TOUR.maxQueueWaitMs,
       playbackGraceMs: TOUR.playbackGraceMs,
@@ -50,6 +55,7 @@ export function useTourGuide({ active, pois, narrations, position, settings }: U
       controller.stop();
       controllerRef.current = null;
       visitedRef.current = new Set();
+      recentRef.current = [];
       setVisitedCount(0);
     };
   }, [active]);
@@ -68,6 +74,7 @@ export function useTourGuide({ active, pois, narrations, position, settings }: U
       // Server lines are generated without a side, so fresh local lines can say left/right.
       const narration = narrationsRef.current[poi.id] ?? localNarration(poi, relativeSide(position, poi));
       controller.enqueue(poi, narration);
+      recentRef.current = [...recentRef.current, { placeId: poi.id, text: narration.text }].slice(-3);
     }
     setVisitedCount(visitedRef.current.size);
   }, [active, position, pois]);
@@ -88,6 +95,9 @@ export function useTourGuide({ active, pois, narrations, position, settings }: U
     total: pois.length,
     pause: () => controllerRef.current?.pause(),
     resume: () => controllerRef.current?.resume(),
+    /** Places the car has reached so far (narrated or muted). */
+    passedPlaceIds: () => [...visitedRef.current],
+    recentNarrations: () => recentRef.current,
   };
 }
 

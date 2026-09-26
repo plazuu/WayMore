@@ -1,7 +1,8 @@
 import { LIVE_GUIDE } from "../config";
 import { cleanScript, normalizeForMatch } from "../narration/scriptWriter";
 import { chat as llmChat, isLlmAvailable, isSearchUnavailable, type ChatMessage, type Source } from "../services/openai";
-import { bearingDeg, distanceMeters, relativeAngle } from "./geo";
+import { bearingDeg, distanceMeters, relativeAngle, type LatLng } from "./geo";
+import type { Place } from "../types";
 import type { TourSession } from "./session";
 
 export type ChatLlm = typeof llmChat;
@@ -10,6 +11,20 @@ export interface ChatReply {
   reply: string;
   placeId: string | null;
   sources: Source[];
+}
+
+/**
+ * Ride state the app sends with a question when it runs the tour itself and
+ * never ticks this session (pregenerated narration). Overrides the session's own
+ * position and narration history; `passedPlaceIds` makes "passed" authoritative.
+ */
+export interface RideContext {
+  position?: LatLng;
+  heading?: number | null;
+  /** Places the car has reached. When present, every other place is still ahead. */
+  passedPlaceIds?: string[];
+  /** What the app narrated most recently, oldest first. */
+  recent?: { placeId: string; text: string }[];
 }
 
 export const CHAT_FALLBACK = "Sorry, I lost my signal for a sec, can you ask again?";
@@ -40,6 +55,7 @@ Rules:
 - Reply in 1 to 4 short sentences of plain text. No markdown, lists, headings, emojis, or links.
 - Sound like a friend, not an encyclopedia.
 - Use the ride context (where the car is, what you just narrated, the places along the route) to work out what "it", "that" or "there" refers to.
+- Only say the car has passed, reached or seen a place, or that you told them about it, if the ride context says so. Places not reached yet are still ahead.
 ${grounding ? "- Use web search to check facts before stating them.\n" : ""}- If you are not sure of something, say so plainly instead of guessing.
 - Never state prices, opening hours, or phone numbers unless a search result you found gives them.
 - If the question has nothing to do with the ride, the city, or the places around it, give a short friendly redirect back to the ride.
@@ -57,25 +73,33 @@ function formatDistance(m: number): string {
 }
 
 /** The ride context block sent with each question. */
-export function buildContext(s: TourSession): string {
+export function buildContext(s: TourSession, ride?: RideContext): string {
   const lines: string[] = [];
-  if (s.position) {
-    const heading = s.heading === null ? "" : `, heading ${compass(s.heading)}`;
-    lines.push(`Car position: ${s.position.lat.toFixed(5)}, ${s.position.lng.toFixed(5)}${heading}`);
+  const pos = ride?.position ?? s.position;
+  const heading = ride?.position ? (ride.heading ?? null) : s.heading;
+  if (pos) {
+    const dir = heading === null ? "" : `, heading ${compass(heading)}`;
+    lines.push(`Car position: ${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)}${dir}`);
   } else {
     lines.push("Car position: unknown (the trip just started)");
   }
 
-  const recent = s.narrated.slice(-3);
+  const recent = ride?.recent
+    ? ride.recent.map((r) => ({ name: s.place(r.placeId)?.name ?? r.placeId, side: null, text: r.text }))
+    : s.narrated;
   lines.push("", "What you narrated most recently (oldest first):");
   if (recent.length) {
-    for (const n of recent) lines.push(`- ${n.name} (on the ${n.side}): ${n.text}`);
+    for (const n of recent.slice(-3)) lines.push(`- ${n.name}${n.side ? ` (on the ${n.side})` : ""}: ${n.text}`);
   } else {
     lines.push("- nothing yet");
   }
 
+  if (ride?.passedPlaceIds) {
+    placesByProgress(s, new Set(ride.passedPlaceIds), pos, lines);
+    return lines.join("\n");
+  }
+
   lines.push("", "Places along this route:");
-  const pos = s.position;
   const places = pos
     ? [...s.places]
         .map((p) => ({ p, d: distanceMeters(pos, p) }))
@@ -87,29 +111,55 @@ export function buildContext(s: TourSession): string {
     let where = "";
     if (d !== null && pos) {
       const passed =
-        s.heading !== null &&
-        Math.abs(relativeAngle(s.heading, bearingDeg(pos, p))) > LIVE_GUIDE.inFrontHalfAngleDeg;
+        heading !== null && Math.abs(relativeAngle(heading, bearingDeg(pos, p))) > LIVE_GUIDE.inFrontHalfAngleDeg;
       where = `, ${formatDistance(d)} away${passed ? ", already passed" : ""}`;
     }
-    const kind = p.kind === "restaurant" ? "restaurant" : "landmark";
-    const detail = [p.category, p.tagline, p.description, ...(p.facts ?? [])].filter(Boolean).join(" ");
-    lines.push(`- ${p.name} (${kind}${where})${detail ? `: ${detail}` : ""}`);
+    lines.push(describePlace(p, where));
   }
   return lines.join("\n");
+}
+
+function describePlace(p: Place, where: string): string {
+  const kind = p.kind === "restaurant" ? "restaurant" : "landmark";
+  const detail = [p.category, p.tagline, p.description, ...(p.facts ?? [])].filter(Boolean).join(" ");
+  return `- ${p.name} (${kind}${where})${detail ? `: ${detail}` : ""}`;
+}
+
+/** Route places split into reached and still ahead, as the app reports them. */
+function placesByProgress(s: TourSession, passed: Set<string>, pos: LatLng | null, lines: string[]) {
+  const reached = s.places.filter((p) => passed.has(p.id));
+  const ahead = s.places
+    .filter((p) => !passed.has(p.id))
+    .map((p) => ({ p, d: pos ? distanceMeters(pos, p) : null }))
+    .sort((a, b) => (a.d ?? 0) - (b.d ?? 0));
+
+  lines.push("", "Places the car has already reached:");
+  if (!reached.length) lines.push("- none yet");
+  for (const p of reached.slice(-CONTEXT_PLACES)) lines.push(describePlace(p, ""));
+
+  lines.push("", "Places NOT reached yet (still ahead, nearest first):");
+  if (!ahead.length) lines.push("- none, that was the whole route");
+  for (const { p, d } of ahead.slice(0, CONTEXT_PLACES)) {
+    lines.push(describePlace(p, d === null ? "" : `, ${formatDistance(d)} away`));
+  }
 }
 
 /**
  * Which route place the exchange is about: session places whose name appears
  * in the question or the reply; the nearest to the car wins.
  */
-export function matchPlaceId(s: TourSession, message: string, reply: string): string | null {
+export function matchPlaceId(
+  s: TourSession,
+  message: string,
+  reply: string,
+  pos: LatLng | null = s.position,
+): string | null {
   const haystack = ` ${normalizeForMatch(`${message} ${reply}`)} `;
   const matches = s.places.filter((p) => {
     const name = normalizeForMatch(p.name);
     return name.length > 0 && haystack.includes(` ${name} `);
   });
   if (!matches.length) return null;
-  const pos = s.position;
   if (!pos) return matches[0].id;
   return matches.reduce((a, b) => (distanceMeters(pos, b) < distanceMeters(pos, a) ? b : a)).id;
 }
@@ -138,13 +188,14 @@ export interface AnswerOptions {
   llm?: ChatLlm;
   timeoutMs?: number;
   now?: () => number;
+  ride?: RideContext;
 }
 
 /** Never rejects: failures and timeouts become CHAT_FALLBACK with no sources. */
 export async function answer(
   s: TourSession,
   message: string,
-  { llm = llmChat, timeoutMs = LIVE_GUIDE.chatTimeoutMs, now = Date.now }: AnswerOptions = {},
+  { llm = llmChat, timeoutMs = LIVE_GUIDE.chatTimeoutMs, now = Date.now, ride }: AnswerOptions = {},
 ): Promise<ChatReply> {
   const started = performance.now();
   const grounding = LIVE_GUIDE.chatGrounding;
@@ -162,7 +213,7 @@ export async function answer(
     }
     messages.push({
       role: "user",
-      text: `Ride context:\n${buildContext(s)}\n\nPassenger's question: ${message}`,
+      text: `Ride context:\n${buildContext(s, ride)}\n\nPassenger's question: ${message}`,
     });
     const deadline = performance.now() + timeoutMs;
     const call = (grounded: boolean) => {
@@ -200,5 +251,5 @@ export async function answer(
     s.chat.splice(0, Math.max(0, s.chat.length - LIVE_GUIDE.chatHistoryTurns));
   }
   console.log(`[chat] ${Math.round(performance.now() - started)} ms (${outcome})`);
-  return { reply, placeId: matchPlaceId(s, message, reply), sources };
+  return { reply, placeId: matchPlaceId(s, message, reply, ride?.position ?? s.position), sources };
 }

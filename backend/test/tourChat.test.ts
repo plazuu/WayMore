@@ -84,6 +84,58 @@ test("context includes the last 3 narrated places with what was said", async () 
   assert.match(ctx, /- B \(on the left\): Line B\n- C \(on the left\): Line C\n- D \(on the left\): Line D/);
 });
 
+test("ride context: the app's passed list decides reached vs. ahead, and its narrations are used", async () => {
+  const { session } = await setup();
+  const ctx = buildContext(session, {
+    position: { lat: 25.7765, lng: -80.1882 },
+    heading: 0,
+    passedPlaceIds: [],
+    recent: [{ placeId: "tower", text: "Freedom Tower is coming up." }],
+  });
+  assert.match(ctx, /Car position: 25\.77650, -80\.18820, heading north/);
+  assert.match(ctx, /- Freedom Tower: Freedom Tower is coming up\./);
+  assert.match(ctx, /already reached:\n- none yet/);
+  const ahead = ctx.split("NOT reached yet")[1];
+  for (const name of ["Kaseya Center", "Bayside Marketplace", "Freedom Tower"]) assert.match(ahead, new RegExp(name));
+  assert.doesNotMatch(ctx, /already passed/);
+
+  const later = buildContext(session, { position: { lat: 25.7815, lng: -80.187 }, passedPlaceIds: ["bayside", "tower"] });
+  const [reached, stillAhead] = later.split("NOT reached yet");
+  assert.match(reached, /Bayside Marketplace/);
+  assert.match(reached, /Freedom Tower/);
+  assert.doesNotMatch(reached, /Kaseya/);
+  assert.match(stillAhead, /Kaseya Center \(landmark, \d+ m away\)/);
+});
+
+test("ride is sent to the LLM; the system prompt forbids claiming unreached places", async () => {
+  useLlm();
+  let seen: { system: string; text: string } | null = null;
+  const { app, sessionId } = await setup(async (system, messages) => {
+    seen = { system, text: messages.at(-1)!.text };
+    return { text: "Bayside is still ahead of us.", sources: [] };
+  });
+  await request(app)
+    .post("/tour/chat")
+    .send({ sessionId, message: "Did we pass Bayside?", ride: { lat: 25.7765, lng: -80.1882, heading: null, passedPlaceIds: [] } })
+    .expect(200);
+  assert.match(seen!.system, /Only say the car has passed/);
+  assert.match(seen!.text, /already reached:\n- none yet/);
+});
+
+test("a malformed ride gets 400 bad_request", async () => {
+  const { app, sessionId } = await setup();
+  for (const ride of [
+    "north",
+    { lat: 25 },
+    { lat: 25, lng: -80, heading: "n" },
+    { passedPlaceIds: "bayside" },
+    { recent: [{ placeId: "x" }] },
+  ]) {
+    const res = await request(app).post("/tour/chat").send({ sessionId, message: "hi", ride }).expect(400);
+    assert.equal(res.body.error, "bad_request", JSON.stringify(ride));
+  }
+});
+
 test("chat history is capped at 10 turns and sent as prior messages", async () => {
   useLlm();
   const lengths: number[] = [];

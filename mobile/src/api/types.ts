@@ -1,5 +1,5 @@
 // Shapes returned by the Express server in `server/`. Keep in sync with
-// server/API.md (route + photo) and docs/narration-api.md (narration).
+// docs/api.md.
 
 export interface LatLng {
   latitude: number;
@@ -96,4 +96,31 @@ export type PoiKind = 'landmark' | 'food';
 /** A POI tagged with which list it came from, so landmarks and food stops can share one list/map layer. */
 export interface TripPoi extends Poi {
   kind: PoiKind;
+}
+
+// ---- Live guide chat (docs/api.md#live-guide) ----
+
+export interface ChatSource {
+  title: string;
+  url: string;
+}
+
+/** The app's view of the trip, sent with each question so the guide knows what's been passed. */
+export interface ChatRide {
+  lat?: number;
+  lng?: number;
+  heading?: number | null;
+  /** Places the car has reached; everything else is still ahead. */
+  passedPlaceIds: string[];
+  /** Lines narrated most recently, oldest first. */
+  recent: { placeId: string; text: string }[];
+}
+
+export interface ChatReply {
+  /** 1–4 plain-text sentences in the guide's voice. */
+  reply: string;
+  /** The route place the exchange is about, or null. */
+  placeId: string | null;
+  /** Web pages the answer cited; can be empty. */
+  sources: ChatSource[];
 }

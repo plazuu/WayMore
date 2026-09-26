@@ -31,8 +31,13 @@ Branch: `feature/route-scoring`
 Branch: `feature/mobile-map`
 *Depends on M1*
 
+<<<<<<< HEAD
+- [ ] Start/end input screen with Places Autocomplete — input sheet done (`mobile/src/components/sheets/PlanTripSheet.tsx`, plain text); autocomplete still needs a server proxy endpoint
+- [x] Map screen (`react-native-maps`) rendering polyline + POI pins — `mobile/src/components/map/`. Map tiles need a dev build with `GOOGLE_MAPS_ANDROID_API_KEY` (Expo Go's key is rejected), see the Mobile app section of `README.md`
+=======
 - [x] Start/end input screen with Places Autocomplete — `mobile/src/components/ui/AddressAutocompleteField.tsx` queries the server's `/autocomplete` proxy (`server/src/routes/autocomplete.ts`), debounced with session tokens
 - [x] Map screen (`react-native-maps`) rendering polyline + POI pins — `mobile/src/components/map/`. Map tiles need a dev build with `GOOGLE_MAPS_ANDROID_API_KEY` (Expo Go's key is rejected), see `mobile/README.md`
+>>>>>>> origin/main
 - [x] Normal/Scenic toggle — switches which route object from the single `/route` response is rendered (no second request needed); show `extraTimeSeconds` as "+N min" next to the toggle
 - [x] Distinct pin icon/color for landmarks vs. food stops
 - [x] Filter toggle in UI — "Show: Landmarks / Food / Both"
@@ -74,7 +79,7 @@ App (`mobile/`), moving to the live guide (`docs/api.md`):
 - [ ] Chat screen calling `/tour/chat`, sources under replies
 - [ ] `unknown_session` recovery (re-`/tour/start` with the same places)
 - [ ] Simulated drive via `/dev/demo-path` (its places hit the demo audio cache)
-- [ ] Update `mobile/README.md` and `src/api/types.ts` doc references (`server/API.md` and `docs/narration-api.md` are now `docs/api.md`)
+- [x] Update the mobile docs and `src/api/types.ts` doc references (`server/API.md` and `docs/narration-api.md` are now `docs/api.md`); `mobile/README.md` merged into the root `README.md`
 
 ## M4 — Polish / demo prep
 Branch: `feature/polish`
