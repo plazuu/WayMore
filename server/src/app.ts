@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import { autocompleteRouter } from "./routes/autocomplete";
 import { geocodeRouter } from "./routes/geocode";
 import { photoRouter } from "./routes/photo";
 import { routeRouter } from "./routes/route";
@@ -24,6 +25,7 @@ export function createApp({ proxyTimeoutMs }: AppOptions = {}) {
   });
 
   app.use(geocodeRouter);
+  app.use(autocompleteRouter);
   app.use(routeRouter);
   app.use(photoRouter);
 

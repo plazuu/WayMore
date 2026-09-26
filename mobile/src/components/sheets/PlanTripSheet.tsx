@@ -1,9 +1,10 @@
-import { useRef, useState, type ComponentProps, type Ref } from 'react';
+import { useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { DEMO_TRIP } from '@/config';
-import { colors, radii, spacing, typography } from '@/theme';
+import { colors, spacing, typography } from '@/theme';
 
+import { AddressAutocompleteField } from '../ui/AddressAutocompleteField';
 import { Button } from '../ui/Button';
 import { Chip } from '../ui/Chip';
 import { IconButton } from '../ui/IconButton';
@@ -15,11 +16,7 @@ interface PlanTripSheetProps {
   onCancel: () => void;
 }
 
-/**
- * Start/end entry. Plain text for now: the server has no autocomplete proxy yet
- * (see server/API.md "Not yet built"). To add Places Autocomplete, replace
- * `AddressField` with a component that queries a new server endpoint.
- */
+/** Start/end entry, with Places Autocomplete suggestions as you type (server's `/autocomplete` proxy). */
 export function PlanTripSheet({ initialStart, initialEnd, onSubmit, onCancel }: PlanTripSheetProps) {
   const [start, setStart] = useState(initialStart);
   const [end, setEnd] = useState(initialEnd);
@@ -42,7 +39,7 @@ export function PlanTripSheet({ initialStart, initialEnd, onSubmit, onCancel }: 
           <View style={styles.endSquare} />
         </View>
         <View style={styles.inputs}>
-          <AddressField
+          <AddressAutocompleteField
             value={start}
             onChangeText={setStart}
             placeholder="Starting point"
@@ -50,7 +47,7 @@ export function PlanTripSheet({ initialStart, initialEnd, onSubmit, onCancel }: 
             returnKeyType="next"
             onSubmitEditing={() => endRef.current?.focus()}
           />
-          <AddressField
+          <AddressAutocompleteField
             ref={endRef}
             value={end}
             onChangeText={setEnd}
@@ -85,21 +82,6 @@ export function PlanTripSheet({ initialStart, initialEnd, onSubmit, onCancel }: 
   );
 }
 
-type AddressFieldProps = ComponentProps<typeof TextInput> & { ref?: Ref<TextInput> };
-
-function AddressField(props: AddressFieldProps) {
-  return (
-    <TextInput
-      placeholderTextColor={colors.textMuted}
-      autoCorrect={false}
-      autoCapitalize="words"
-      selectTextOnFocus
-      style={styles.input}
-      {...props}
-    />
-  );
-}
-
 const styles = StyleSheet.create({
   container: { gap: spacing.lg },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -109,13 +91,5 @@ const styles = StyleSheet.create({
   railLine: { width: 2, height: 36, backgroundColor: colors.border, marginVertical: 4 },
   endSquare: { width: 10, height: 10, backgroundColor: colors.routeEnd },
   inputs: { flex: 1, gap: spacing.sm },
-  input: {
-    height: 48,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.md,
-    backgroundColor: colors.surface,
-    fontSize: 16,
-    color: colors.text,
-  },
   suggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
 });
