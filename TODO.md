@@ -31,26 +31,26 @@ Branch: `feature/route-scoring`
 Branch: `feature/mobile-map`
 *Depends on M1*
 
-- [ ] Start/end input screen with Places Autocomplete
-- [ ] Map screen (`react-native-maps`) rendering polyline + POI pins
-- [ ] Normal/Scenic toggle — switches which route object from the single `/route` response is rendered (no second request needed); show `extraTimeSeconds` as "+N min" next to the toggle
-- [ ] Distinct pin icon/color for landmarks vs. food stops
-- [ ] Filter toggle in UI — "Show: Landmarks / Food / Both"
-- [ ] Landmark detail card on pin tap — photo + description
-- [ ] Restaurant detail card — cuisine, price level, blurb, photo
-- [ ] Loading/error states while backend computes the route
-- [ ] Dev setting: slider/input for POI sampling interval + search radius (passes `sampleIntervalMeters`/`searchRadiusMeters` to `POST /route`) — for testing landmark density vs. API cost tradeoffs, not a user-facing feature
+- [ ] Start/end input screen with Places Autocomplete — input sheet done (`mobile/src/components/sheets/PlanTripSheet.tsx`, plain text); autocomplete still needs a server proxy endpoint
+- [x] Map screen (`react-native-maps`) rendering polyline + POI pins — `mobile/src/components/map/`. Map tiles need a dev build with `GOOGLE_MAPS_ANDROID_API_KEY` (Expo Go's key is rejected), see `mobile/README.md`
+- [x] Normal/Scenic toggle — switches which route object from the single `/route` response is rendered (no second request needed); show `extraTimeSeconds` as "+N min" next to the toggle
+- [x] Distinct pin icon/color for landmarks vs. food stops
+- [x] Filter toggle in UI — "Show: Landmarks / Food / Both"
+- [x] Landmark detail card on pin tap — photo + description
+- [x] Restaurant detail card — cuisine, price level, blurb, photo
+- [x] Loading/error states while backend computes the route
+- [x] Dev setting: slider/input for POI sampling interval + search radius (passes `sampleIntervalMeters`/`searchRadiusMeters` to `POST /route`) — for testing landmark density vs. API cost tradeoffs, not a user-facing feature
 
 ## M3 — Live tour guide
 Branch: `feature/tour-guide`
 *Depends on M1 (POI data) + M2 (map/location screen)*
 
-- [ ] Location permission + `expo-location` `watchPosition`
-- [ ] Proximity engine — distance + bearing check per POI (only trigger when ahead of you, not behind)
-- [ ] Narration queue — sequential playback, mark POI "visited" so it never re-triggers
-- [ ] TTS playback via `expo-speech` (MVP voice)
-- [ ] Narration tone: landmarks = informative, food stops = suggestion ("coming up on your right...")
-- [ ] "Now touring" UI — current/next POI banner, mute toggle (landmarks and food stops mutable separately)
+- [x] Location permission + `expo-location` `watchPosition` — plus a simulated drive for emulators (`mobile/src/features/tour/usePosition.ts`); GPS path not yet tested on a real device
+- [x] Proximity engine — distance + bearing check per POI (only trigger when ahead of you, not behind)
+- [x] Narration queue — sequential playback, mark POI "visited" so it never re-triggers
+- [x] TTS playback via `expo-speech` (MVP voice) — plays server MP3s (`expo-audio`) when `audioUrl` is set, falls back to `expo-speech`
+- [x] Narration tone: landmarks = informative, food stops = suggestion ("coming up on your right...")
+- [x] "Now touring" UI — current/next POI banner, mute toggle (landmarks and food stops mutable separately)
 
 ## M4 — Polish / demo prep
 Branch: `feature/polish`
