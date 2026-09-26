@@ -119,6 +119,7 @@ export async function computeRoutes(origin: LatLng, destination: LatLng): Promis
       destination: { location: { latLng: { latitude: destination.lat, longitude: destination.lng } } },
       travelMode: "DRIVE",
       routingPreference: "TRAFFIC_AWARE",
+      polylineQuality: "HIGH_QUALITY",
       computeAlternativeRoutes: true,
     }),
   });
