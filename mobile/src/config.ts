@@ -32,7 +32,7 @@ export const DEMO_TRIP = {
   end: 'Wynwood Walls, Miami, FL',
 };
 
-/** Live tour guide tuning. See docs/narration-api.md for the queue rules. */
+/** Live tour guide tuning. See "Playing narration" in docs/api.md for the queue rules. */
 export const TOUR = {
   /** POIs closer than this are within range of triggering. */
   triggerRadiusMeters: 250,
@@ -49,3 +49,13 @@ export const TOUR = {
 
 /** Server caps /narration/pregenerate at 100 places per request. */
 export const MAX_NARRATION_PLACES = 100;
+
+/** Passenger chat with the guide (POST /tour/chat). */
+export const CHAT = {
+  /** Server rejects longer messages with 400 message_too_long. */
+  maxMessageChars: 500,
+  /** Server caps /tour/start at 200 places. */
+  maxSessionPlaces: 200,
+  welcome:
+    "Hey, I'm your scenic copilot! Ask me anything about the places we're passing: the history, what's worth a stop, or what that building back there was.",
+};

@@ -42,6 +42,55 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult> {
   };
 }
 
+export interface AutocompleteSuggestion {
+  placeId: string;
+  text: string;
+  mainText: string;
+  secondaryText?: string;
+}
+
+/** Places Autocomplete (New). `sessionToken` should be the same string for every
+ * keystroke of one address search and a fresh one per search, per Google's
+ * session-based billing — see mobile's AddressAutocompleteField. */
+export async function autocompletePlaces(
+  input: string,
+  sessionToken?: string,
+): Promise<AutocompleteSuggestion[]> {
+  if (!GOOGLE_MAPS_API_KEY) {
+    throw new GoogleMapsError("GOOGLE_MAPS_API_KEY is not configured", 500);
+  }
+
+  const response = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
+    },
+    body: JSON.stringify({ input, ...(sessionToken ? { sessionToken } : {}) }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new GoogleMapsError(
+      `Autocomplete failed: ${data.error?.message ?? response.statusText}`,
+      502,
+    );
+  }
+
+  return (data.suggestions ?? [])
+    .filter((s: any) => s.placePrediction)
+    .map((s: any): AutocompleteSuggestion => {
+      const prediction = s.placePrediction;
+      return {
+        placeId: prediction.placeId,
+        text: prediction.text?.text ?? "",
+        mainText: prediction.structuredFormat?.mainText?.text ?? prediction.text?.text ?? "",
+        secondaryText: prediction.structuredFormat?.secondaryText?.text,
+      };
+    });
+}
+
 export interface LatLng {
   lat: number;
   lng: number;

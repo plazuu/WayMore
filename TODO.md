@@ -25,14 +25,19 @@ Branch: `feature/route-scoring`
 - [x] Scoring algorithm — rank candidate routes by landmark rating-weighted score (sum of landmark ratings; restaurants are suggested stops, not route-scoring inputs) — `server/src/lib/scoring.ts`
 - [x] Select winning route + ordered POI list — done as part of the normal/scenic split below
 - [x] Enrichment (partial) — `GET /photo?name=` proxies Places Photo Media server-side so the API key never reaches the client (`server/src/routes/photo.ts`); `description`/`cuisine`/`priceLevel` pulled from Places' own `editorialSummary`/`types`/`priceLevel` fields (`server/src/lib/places.ts`) — only ~1/3 of landmarks have a Google-authored summary, so most POIs still have no description until web search or an LLM call fills the gap (see M3 LLM narration + Stretch)
-- [x] `POST /route` — `{start, end}` → `{normal: {polyline, distanceMeters, durationSeconds, landmarks[], foodStops[]}, scenic: {...same shape...}, extraTimeSeconds}` — single call returns both the fastest and highest-scoring route plus their time difference, so the app's normal/scenic toggle needs no second request. Each POI carries `{id, name, lat, lng, types, rating, userRatingCount, priceLevel?, cuisine?, description?, photoUrl?}` — this is the exact shape the M3 `backend/` LLM tour-guide service will consume to generate narration
+- [x] `POST /route` — `{start, end}` → `{normal: {polyline, distanceMeters, durationSeconds, landmarks[], foodStops[]}, scenic: {...same shape...}, extraTimeSeconds}` — single call returns both the fastest and highest-scoring route plus their time difference, so the app's normal/scenic toggle needs no second request. Each POI carries `{id, name, lat, lng, types, rating, userRatingCount, priceLevel?, cuisine?, description?, photoUrl?}` — the app maps these to the `Place` shape the live guide takes in `/tour/start` (see `docs/api.md`)
 
 ## M2 — Mobile app: map + route display
 Branch: `feature/mobile-map`
 *Depends on M1*
 
+<<<<<<< HEAD
 - [ ] Start/end input screen with Places Autocomplete — input sheet done (`mobile/src/components/sheets/PlanTripSheet.tsx`, plain text); autocomplete still needs a server proxy endpoint
+- [x] Map screen (`react-native-maps`) rendering polyline + POI pins — `mobile/src/components/map/`. Map tiles need a dev build with `GOOGLE_MAPS_ANDROID_API_KEY` (Expo Go's key is rejected), see the Mobile app section of `README.md`
+=======
+- [x] Start/end input screen with Places Autocomplete — `mobile/src/components/ui/AddressAutocompleteField.tsx` queries the server's `/autocomplete` proxy (`server/src/routes/autocomplete.ts`), debounced with session tokens
 - [x] Map screen (`react-native-maps`) rendering polyline + POI pins — `mobile/src/components/map/`. Map tiles need a dev build with `GOOGLE_MAPS_ANDROID_API_KEY` (Expo Go's key is rejected), see `mobile/README.md`
+>>>>>>> origin/main
 - [x] Normal/Scenic toggle — switches which route object from the single `/route` response is rendered (no second request needed); show `extraTimeSeconds` as "+N min" next to the toggle
 - [x] Distinct pin icon/color for landmarks vs. food stops
 - [x] Filter toggle in UI — "Show: Landmarks / Food / Both"
@@ -42,23 +47,47 @@ Branch: `feature/mobile-map`
 - [x] Dev setting: slider/input for POI sampling interval + search radius (passes `sampleIntervalMeters`/`searchRadiusMeters` to `POST /route`) — for testing landmark density vs. API cost tradeoffs, not a user-facing feature
 
 ## M3 — Live tour guide
-Branch: `feature/tour-guide`
+Branch: `live-guide`
 *Depends on M1 (POI data) + M2 (map/location screen)*
 
+Approach: everything is live, nothing is pregenerated. The app streams GPS ticks; the `backend/` service decides when the car approaches a place, writes the line with OpenAI, voices it with Speechify and returns it on a later tick. A text chat agent answers passenger questions. API and app flow: `docs/api.md`. (The earlier `/narration/pregenerate` endpoints stay available because the app's current tour mode uses them; the abandoned `feature/dialog-contract` plan was removed.)
+
+Narration service (`backend/`; `backend/src/live/`, `backend/src/routes/tour.ts`):
+- [x] In-memory sessions — `POST /tour/start` / `POST /tour/end`, 2 h idle TTL; `404 unknown_session` → app restarts the session with the same places
+- [x] Proximity engine — `POST /tour/tick`: trigger on ETA ≤ 40 s or ≤ 250 m, only places in front (±100°), once per session, nearest first; left/right/ahead side; heading fallbacks (negative heading or < 2 m/s → derive from movement ≥ 10 m → else "ahead")
+- [x] Live generation in the background — LLM line (template fallback) + Speechify audio (`audioUrl: null` fallback), one at a time per session, returned exactly once
+- [x] Staleness — drop ready/queued narrations once the place is behind, the distance grew 2 ticks in a row, or 45 s passed
+- [x] Disk cache by place + side + model + voice, so repeat passes and the demo play instantly
+- [x] Narration tone: landmarks informative, restaurants framed as food stops (prompt in `backend/src/narration/prompts.ts`)
+- [x] Chat agent — `POST /tour/chat` with car position, last 3 narrations, nearby places and last 10 turns as context; web search with `sources` (OpenAI `web_search`); server-side `placeId`; 12 s timeout fallback
+- [x] All timings and model names in one place (`LIVE_GUIDE` / `llmConfig` in `backend/src/config.ts`)
+- [x] `GET /dev/demo-path` + `npm run replay:drive` (simulated drive past Bayside Marketplace, Freedom Tower, Kaseya Center)
+- [x] One base URL for the app: `server/` proxies `/tour`, `/narration`, `/audio`, `/dev` to `backend/` (streamed, 20 s timeout or 120 s for `/narration`, `502 backend_unavailable`), `/health` shows the backend's status, `npm run dev:all` starts both; one tunnel, `PUBLIC_BASE_URL` = the `server/` tunnel URL
+- [x] LLM is OpenAI (switched from Gemini for cost; Gemini support removed): `gpt-4.1-nano` for narration (most natural spoken lines, ~1 s), `gpt-4o-mini` for chat (supports `web_search`, cites sources, ~3 s). Chosen by benchmarking the key's mini/nano models
+- [ ] Chat `placeId` only matches place names; a reply that says "there" without naming the place gives `null` (could fall back to the last narrated place). The OpenAI chat model usually names the place, so this is rarer now
+
+App (`mobile/`), current tour mode (pregenerated narration via `/narration/pregenerate`, proximity on the phone):
 - [x] Location permission + `expo-location` `watchPosition` — plus a simulated drive for emulators (`mobile/src/features/tour/usePosition.ts`); GPS path not yet tested on a real device
 - [x] Proximity engine — distance + bearing check per POI (only trigger when ahead of you, not behind)
 - [x] Narration queue — sequential playback, mark POI "visited" so it never re-triggers
-- [x] TTS playback via `expo-speech` (MVP voice) — plays server MP3s (`expo-audio`) when `audioUrl` is set, falls back to `expo-speech`
+- [x] TTS playback — plays server MP3s (`expo-audio`) when `audioUrl` is set, falls back to `expo-speech`
 - [x] Narration tone: landmarks = informative, food stops = suggestion ("coming up on your right...")
 - [x] "Now touring" UI — current/next POI banner, mute toggle (landmarks and food stops mutable separately)
+
+App (`mobile/`), moving to the live guide (`docs/api.md`):
+- [ ] Tick loop every ~3 s calling `/tour/tick` (awaiting each), replacing on-phone proximity + pregenerate
+- [ ] Chat screen calling `/tour/chat`, sources under replies
+- [ ] `unknown_session` recovery (re-`/tour/start` with the same places)
+- [ ] Simulated drive via `/dev/demo-path` (its places hit the demo audio cache)
+- [x] Update the mobile docs and `src/api/types.ts` doc references (`server/API.md` and `docs/narration-api.md` are now `docs/api.md`); `mobile/README.md` merged into the root `README.md`
 
 ## M4 — Polish / demo prep
 Branch: `feature/polish`
 
-- [ ] Handle no-landmarks-found edge case gracefully
-- [ ] Pre-fetch/cache POI data client-side before trip starts (avoids live calls while driving)
-- [ ] App icon, splash screen, basic style pass
-- [ ] Rehearse demo, record backup video in case of live-demo wifi issues
+- [x] Handle no-landmarks-found edge case gracefully — `RoutePreviewSheet` shows "No landmarks or food stops found along this route." instead of an empty list (`mobile/src/components/sheets/RoutePreviewSheet.tsx`)
+- [ ] Pre-fetch/cache POI data client-side before trip starts (avoids live calls while driving) — not started, no `AsyncStorage`/cache layer in `mobile/src` yet
+- [ ] App icon, splash screen, basic style pass — app icon + Android adaptive icon + favicon are in place (`mobile/assets/`, wired in `app.json`); no `expo-splash-screen` plugin configured yet so there's no real splash screen, and no dedicated style/theming pass beyond the existing component styles
+- [ ] Rehearse demo, record backup video in case of live-demo wifi issues (see README "Demo day": `npm run replay:drive -- --real` fills the audio cache) — not started
 
 ## Stretch (only if time remains)
 

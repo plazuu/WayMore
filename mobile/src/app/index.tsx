@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AskGuideButton } from '@/components/chat/AskGuideButton';
+import { GuideChatModal } from '@/components/chat/GuideChatModal';
 import { RouteMap } from '@/components/map/RouteMap';
 import { HomeSheet } from '@/components/sheets/HomeSheet';
 import { PlanTripSheet } from '@/components/sheets/PlanTripSheet';
@@ -11,6 +13,7 @@ import { ErrorSheet, LoadingSheet } from '@/components/sheets/StatusSheets';
 import { TourSheet } from '@/components/sheets/TourSheet';
 import { IconButton } from '@/components/ui/IconButton';
 import { Sheet } from '@/components/ui/Sheet';
+import { useGuideChat } from '@/features/chat/useGuideChat';
 import { usePosition } from '@/features/tour/usePosition';
 import { useTourGuide } from '@/features/tour/useTourGuide';
 import { shortPlaceName } from '@/lib/format';
@@ -37,6 +40,7 @@ export default function MapScreen() {
   const [sheetHeight, setSheetHeight] = useState(0);
 
   const touring = state.phase === 'touring';
+  const narrationMuted = !settings.narrateLandmarks && !settings.narrateFood;
   const { position, error: locationError } = usePosition({
     enabled: touring,
     simulate: settings.simulateDrive,
@@ -50,6 +54,18 @@ export default function MapScreen() {
     position,
     settings,
   });
+  const chat = useGuideChat({
+    active: touring,
+    pois: active?.allPois ?? NO_POIS,
+    getRide: () => ({
+      lat: position?.coords.latitude,
+      lng: position?.coords.longitude,
+      heading: position?.heading ?? null,
+      passedPlaceIds: guide.passedPlaceIds(),
+      recent: guide.recentNarrations(),
+    }),
+  });
+  const [chatOpen, setChatOpen] = useState(false);
 
   const renderSheet = () => {
     switch (state.phase) {
@@ -137,9 +153,34 @@ export default function MapScreen() {
         </View>
       )}
 
+      {touring && (
+        <>
+          <AskGuideButton
+            onPress={() => setChatOpen(true)}
+            style={[styles.askGuide, { bottom: sheetHeight + spacing.md }]}
+          />
+          <View style={[styles.topBarRight, { top: insets.top + spacing.sm }]} pointerEvents="box-none">
+            <IconButton
+              icon={narrationMuted ? 'volumeOff' : 'volumeOn'}
+              variant="floating"
+              accessibilityLabel={narrationMuted ? 'Unmute tour guide' : 'Mute tour guide'}
+              onPress={() =>
+                updateSettings(
+                  narrationMuted
+                    ? { narrateLandmarks: true, narrateFood: true }
+                    : { narrateLandmarks: false, narrateFood: false },
+                )
+              }
+            />
+          </View>
+          </>
+      )}
+
       <KeyboardAvoidingView behavior="padding" style={styles.sheetArea} pointerEvents="box-none">
         <Sheet onHeightChange={setSheetHeight}>{renderSheet()}</Sheet>
       </KeyboardAvoidingView>
+
+      <GuideChatModal visible={touring && chatOpen} chat={chat} onClose={() => setChatOpen(false)} />
     </View>
   );
 }
@@ -147,5 +188,7 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   topBar: { position: 'absolute', left: spacing.lg, flexDirection: 'row', gap: spacing.sm },
+  askGuide: { position: 'absolute', right: spacing.lg },
+  topBarRight: { position: 'absolute', right: spacing.lg, flexDirection: 'row', gap: spacing.sm },
   sheetArea: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, justifyContent: 'flex-end' },
 });

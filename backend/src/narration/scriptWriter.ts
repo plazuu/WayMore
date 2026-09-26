@@ -1,4 +1,4 @@
-import { generate, isGeminiAvailable } from "../services/gemini";
+import { generate, isLlmAvailable } from "../services/openai";
 import type { Place } from "../types";
 import { buildUserPrompt, directionPhrase, SYSTEM_PROMPT } from "./prompts";
 
@@ -48,14 +48,33 @@ export function cleanScript(raw: string, maxWords = MAX_WORDS): string {
   return text;
 }
 
-function normalizeForMatch(s: string): string {
+// Spelled-out words -> the abbreviation Places uses, so "Collins Avenue" in a
+// line still matches a place named "Collins Ave" (the prompt asks for the long form).
+const STREET_WORDS: Record<string, string> = {
+  street: "st",
+  saint: "st",
+  avenue: "ave",
+  boulevard: "blvd",
+  drive: "dr",
+  road: "rd",
+  highway: "hwy",
+  parkway: "pkwy",
+  lane: "ln",
+  court: "ct",
+  place: "pl",
+};
+
+export function normalizeForMatch(s: string): string {
   return s
     .toLowerCase()
     .replace(/[‘’]/g, "'")
     .replace(/[^a-z0-9' ]+/g, " ")
     .replace(/^the\s+/, "")
     .replace(/\s+/g, " ")
-    .trim();
+    .trim()
+    .split(" ")
+    .map((w) => STREET_WORDS[w] ?? w)
+    .join(" ");
 }
 
 export function passesGuardrails(text: string, place: Place): boolean {
@@ -89,7 +108,7 @@ export interface Script {
 }
 
 export async function writeScript(place: Place): Promise<Script> {
-  if (!isGeminiAvailable()) return { text: templateLine(place), source: "template" };
+  if (!isLlmAvailable()) return { text: templateLine(place), source: "template" };
   try {
     const raw = await generate(SYSTEM_PROMPT, buildUserPrompt(place), {
       temperature: 0.8,
@@ -99,7 +118,7 @@ export async function writeScript(place: Place): Promise<Script> {
     if (passesGuardrails(text, place)) return { text, source: "llm" };
     console.warn(`[narration] guardrails rejected output for ${place.id}: ${JSON.stringify(raw)}`);
   } catch (err) {
-    console.warn(`[narration] Gemini failed for ${place.id}:`, (err as Error).message);
+    console.warn(`[narration] LLM failed for ${place.id}:`, (err as Error).message);
   }
   return { text: templateLine(place), source: "template" };
 }

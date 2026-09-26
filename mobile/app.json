@@ -10,6 +10,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.plazuusteam.scenicroute",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -40,6 +41,13 @@
     "scheme": "scenicroute",
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6e6c1a7e-5663-495a-94aa-1717210df6bd"
+      }
+    },
+    "owner": "plazuus-team"
   }
 }
