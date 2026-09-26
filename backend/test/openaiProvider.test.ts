@@ -11,7 +11,7 @@ import { SessionStore } from "../src/live/session";
 import { cacheKey } from "../src/narration/cache";
 import { SYSTEM_PROMPT } from "../src/narration/prompts";
 import { writeScript } from "../src/narration/scriptWriter";
-import { setOpenAIClientForTests, sourcesOf, type OpenAIClientLike } from "../src/services/openai";
+import { isSearchUnavailable, setOpenAIClientForTests, sourcesOf, type OpenAIClientLike } from "../src/services/openai";
 import type { Place } from "../src/types";
 
 const cacheDir = mkdtempSync(path.join(os.tmpdir(), "openai-test-"));
@@ -270,4 +270,38 @@ test("/health reports the models and mock mode", async () => {
   assert.deepEqual(res.body.tts, { provider: "speechify", mock: true });
   process.env.MOCK_LLM = "1";
   assert.equal((await request(createApp()).get("/health")).body.llm.mock, true);
+});
+
+test("chat: citation links and markers are stripped from the reply, sources stay raw", async () => {
+  fakeClient(() =>
+    message(
+      "The Heat have played at Kaseya Center since 1999 [1] ([nba.com](https://www.nba.com/heat/arena)). Per [Wikipedia](https://en.wikipedia.org/wiki/Kaseya_Center) it seats about 20,000 [[2]](https://example.com/a).",
+      [{ url: "https://www.nba.com/heat/arena", title: "nba.com" }],
+    ),
+  );
+  const { ask } = await chatSetup();
+  const res = await ask("How long has the Heat played there?");
+  assert.equal(res.reply, "The Heat have played at Kaseya Center since 1999. Per Wikipedia it seats about 20,000.");
+  assert.deepEqual(res.sources, [{ title: "nba.com", url: "https://www.nba.com/heat/arena" }]);
+});
+
+test("isSearchUnavailable: 429 and insufficient_quota skip straight to no-search; other errors don't", () => {
+  assert.ok(isSearchUnavailable(Object.assign(new Error("Rate limit"), { status: 429 })));
+  assert.ok(isSearchUnavailable(Object.assign(new Error("You exceeded your current quota"), { code: "insufficient_quota" })));
+  assert.ok(isSearchUnavailable({ error: { type: "insufficient_quota" } }));
+  assert.ok(isSearchUnavailable(new Error("429 insufficient_quota")));
+  assert.ok(!isSearchUnavailable(Object.assign(new Error("Internal error"), { status: 500 })));
+});
+
+test("chat: insufficient_quota on the web-search call answers without search, no second grounded call", async () => {
+  const bodies = fakeClient((body) => {
+    if (body.tools) throw Object.assign(new Error("You exceeded your current quota"), { status: 429, code: "insufficient_quota" });
+    return message("Answer without search.");
+  });
+  const { ask } = await chatSetup();
+  assert.equal((await ask("Hi")).reply, "Answer without search.");
+  assert.deepEqual(
+    bodies.map((b) => Boolean(b.tools)),
+    [true, false],
+  );
 });

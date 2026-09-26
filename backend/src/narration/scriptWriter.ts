@@ -48,6 +48,22 @@ export function cleanScript(raw: string, maxWords = MAX_WORDS): string {
   return text;
 }
 
+// Spelled-out words -> the abbreviation Places uses, so "Collins Avenue" in a
+// line still matches a place named "Collins Ave" (the prompt asks for the long form).
+const STREET_WORDS: Record<string, string> = {
+  street: "st",
+  saint: "st",
+  avenue: "ave",
+  boulevard: "blvd",
+  drive: "dr",
+  road: "rd",
+  highway: "hwy",
+  parkway: "pkwy",
+  lane: "ln",
+  court: "ct",
+  place: "pl",
+};
+
 export function normalizeForMatch(s: string): string {
   return s
     .toLowerCase()
@@ -55,7 +71,10 @@ export function normalizeForMatch(s: string): string {
     .replace(/[^a-z0-9' ]+/g, " ")
     .replace(/^the\s+/, "")
     .replace(/\s+/g, " ")
-    .trim();
+    .trim()
+    .split(" ")
+    .map((w) => STREET_WORDS[w] ?? w)
+    .join(" ");
 }
 
 export function passesGuardrails(text: string, place: Place): boolean {

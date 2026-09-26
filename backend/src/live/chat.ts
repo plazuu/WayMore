@@ -16,6 +16,23 @@ export const CHAT_FALLBACK = "Sorry, I lost my signal for a sec, can you ask aga
 const MAX_REPLY_WORDS = 90;
 const CONTEXT_PLACES = 8;
 
+/**
+ * Strips citation markup the model leaves in its text so the reply reads (and
+ * speaks) cleanly: [Source](url) -> Source, and [1], [1, 2], [[1]](url) and
+ * 【...】 markers are removed. The sources themselves come from annotations.
+ */
+export function sanitizeChatReply(text: string): string {
+  return text
+    .replace(/\s*\[\[[^\]]*\]\]\([^)]*\)/g, "") // [[1]](url)
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1") // [Source](url) -> Source
+    .replace(/\s*\[\d+(?:\s*[,\u2013-]\s*\d+)*\]/g, "") // [1], [1, 2], [1-3]
+    .replace(/\s*【[^】]*】/g, "")
+    .replace(/\(\s*\)/g, "")
+    .replace(/[ \t]+([.,!?;:])/g, "$1")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
 export function chatSystemPrompt(grounding: boolean): string {
   return `You are a young, upbeat local tour guide riding along in the car, showing your friends around the city. You narrate places out loud as the car passes them, and the passenger can also text you questions. You are answering one of those texts now.
 
@@ -160,14 +177,15 @@ export async function answer(
       try {
         out = await call(grounding);
       } catch (err) {
-        // Web search has its own quota and model support; when it's unavailable,
-        // answer ungrounded rather than not at all, within the same time budget.
+        // Web search has its own quota and model support; when it's unavailable
+        // (including a 429 or insufficient_quota), don't retry the search call:
+        // answer ungrounded right away, within the same time budget.
         if (!grounding || !isSearchUnavailable(err)) throw err;
         const status = (err as { status?: number }).status;
         console.warn(`[chat] web search unavailable (${status}), retrying without it`);
         out = await call(false);
       }
-      reply = cleanScript(out.text, MAX_REPLY_WORDS);
+      reply = cleanScript(sanitizeChatReply(out.text), MAX_REPLY_WORDS);
       if (!reply) throw new Error("empty reply");
       sources = out.sources;
       outcome = `ok, ${sources.length} sources`;
