@@ -3,21 +3,22 @@ import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { audioCacheDir } from "../config";
-import { isGeminiAvailable } from "../services/gemini";
+import { isLlmAvailable, llmSignature } from "../services/openai";
 import type { Narration, Place } from "../types";
-import { durationHint, templateLine, writeScript, type Script } from "./scriptWriter";
+import { durationHint, writeScript, type Script } from "./scriptWriter";
 import { isTtsAvailable, synthesizeToFile, voiceSignature } from "./tts";
 
 export const AUDIO_ROUTE = "/audio";
-const PREGEN_CONCURRENCY = 4;
 
-/** What's saved in <key>.json. `facts` is grounding for the future dialog agent. */
+/** What's saved in <key>.json next to the MP3: the line and what it was written from. */
 export interface CacheEntry {
   placeId: string;
   name: string;
   kind: Place["kind"];
   text: string;
   source: Script["source"];
+  /** "provider:model" that wrote the text (or would have, for template lines). */
+  llm?: string;
   tagline?: string;
   description?: string;
   facts: string[];
@@ -36,6 +37,7 @@ export function cacheKey(place: Place): string {
         place.tagline ?? null,
         place.description ?? null,
         place.facts ?? [],
+        llmSignature(),
         ...voiceSignature(),
       ]),
     )
@@ -65,8 +67,8 @@ async function buildNarration(place: Place, key: string): Promise<Narration> {
   const mp3Path = path.join(dir, `${key}.mp3`);
 
   let entry = await readEntry(jsonPath);
-  // Regenerate text if missing, or if it was a template fallback and Gemini is now available.
-  if (!entry || (entry.source === "template" && isGeminiAvailable())) {
+  // Regenerate text if missing, or if it was a template fallback and the LLM is now available.
+  if (!entry || (entry.source === "template" && isLlmAvailable())) {
     const script = await writeScript(place);
     if (entry && entry.text !== script.text) await fs.rm(mp3Path, { force: true });
     entry = {
@@ -75,6 +77,7 @@ async function buildNarration(place: Place, key: string): Promise<Narration> {
       kind: place.kind,
       text: script.text,
       source: script.source,
+      llm: llmSignature(),
       tagline: place.tagline,
       description: place.description,
       facts: place.facts ?? [],
@@ -107,28 +110,4 @@ export function getNarration(place: Place): Promise<Narration> {
     inFlight.set(key, pending);
   }
   return pending;
-}
-
-/** Never rejects: a place that fails gets its template line with audioUrl: null. */
-export async function pregenerate(
-  places: Place[],
-  concurrency = PREGEN_CONCURRENCY,
-): Promise<Narration[]> {
-  const results: Narration[] = new Array(places.length);
-  let next = 0;
-  async function worker() {
-    while (next < places.length) {
-      const i = next++;
-      const place = places[i];
-      try {
-        results[i] = await getNarration(place);
-      } catch (err) {
-        console.warn(`[narration] failed for ${place.id}:`, (err as Error).message);
-        const text = templateLine(place);
-        results[i] = { placeId: place.id, text, audioUrl: null, durationHintS: durationHint(text) };
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(concurrency, places.length) }, worker));
-  return results;
 }

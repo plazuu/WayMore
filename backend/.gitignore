@@ -1,3 +1,5 @@
 node_modules/
 dist/
 .env
+data/audio_cache/
+tmp/
