@@ -64,6 +64,8 @@ export interface RouteResponse {
 export interface RouteTuning {
   sampleIntervalMeters?: number;
   searchRadiusMeters?: number;
+  /** How much longer than the fastest route the scenic route may take. */
+  maxExtraMinutes?: number;
 }
 
 export interface NarrationPlace {

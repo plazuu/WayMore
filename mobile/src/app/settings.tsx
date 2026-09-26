@@ -66,6 +66,12 @@ export default function SettingsScreen() {
           value={settings.searchRadiusMeters}
           onChange={(searchRadiusMeters) => updateSettings({ searchRadiusMeters })}
         />
+        <NumberField
+          label="Max extra time (min)"
+          hint="How much longer the scenic route may take than the fastest. Higher reaches waterfront and beach detours."
+          value={settings.maxExtraMinutes}
+          onChange={(maxExtraMinutes) => updateSettings({ maxExtraMinutes })}
+        />
       </Section>
 
       <Section title="Tour guide">
