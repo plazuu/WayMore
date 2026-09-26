@@ -42,11 +42,13 @@ LLM or voice failures never produce a 5xx: you get a fallback line, `audioUrl: n
 ```
 → `{ "lat": 37.42, "lng": -122.08, "formattedAddress": "1600 Amphitheatre Pkwy, ..." }`
 
-### `GET /autocomplete?input=<partial text>&sessionToken=<opaque string>`
+### `GET /autocomplete?input=<partial text>&sessionToken=<opaque string>&lat=<number>&lng=<number>`
 
 Places Autocomplete (New) proxy, so the app gets the same fill-in-address-as-you-type suggestions a normal map app has, without the Google key ever reaching the client.
 
 `sessionToken` is optional but should be the same string for every keystroke of one address search and a fresh one per search — Google bills per session when it's reused consistently.
+
+`lat`/`lng` are optional: when both are valid, places within about 50 km of that point rank first (farther matches still appear). The app sends its default map center (Miami).
 
 ```json
 {
@@ -76,7 +78,13 @@ Optional query params (clamped server-side): `sampleIntervalMeters` (default 120
 }
 ```
 
-`normal` is the fastest candidate, `scenic` the one with the highest landmark score (sum of landmark ratings); they can be the same route. `extraTimeSeconds` = scenic minus normal duration (can be 0). One call serves the normal/scenic toggle.
+`normal` is the fastest candidate; they can be the same route. `scenic` is chosen as follows (`server/src/lib/scoring.ts`, tunables in `SCENIC` in `server/src/config.ts`):
+
+1. Besides Google's alternatives, the server asks for a no-highway route and routes through up to two waterfront spots (marinas, beaches, piers) near the middle of the trip.
+2. Only candidates within the extra-time budget are eligible: max(8 min, 50% of the fastest), capped at 25 min.
+3. Of those, only the ones with the least non-waterfront highway survive (within 500 m), so a plain highway is used only when every eligible route needs it. Causeways and other highways along the water don't count against a route.
+4. The highest score wins: 40 points per km of waterfront (road within 400 m of a marina, beach, pier, ferry terminal or island, or a road named like a causeway/bayshore/ocean drive), plus the sum of landmark ratings (plain parks at 30%), minus 3 per extra minute. Food never affects the choice beyond 1 km of the drop-off: `foodStops` aren't scored at all, and landmarks that are also food places (restaurants tagged as tourist attractions) only count within 1 km of the destination.
+ `extraTimeSeconds` = scenic minus normal duration (can be 0). One call serves the normal/scenic toggle.
 
 ```ts
 interface RouteOption {
@@ -84,7 +92,9 @@ interface RouteOption {
   durationSeconds: number;
   polyline: string;          // Google encoded polyline; decode client-side
   samplePointCount: number;  // debug
-  score: number;             // debug
+  score: number;             // debug: scenic score
+  waterfrontMeters: number;  // debug: road along the water
+  highwayMeters: number;     // debug: highway not along the water
   landmarks: Poi[];
   foodStops: Poi[];
 }

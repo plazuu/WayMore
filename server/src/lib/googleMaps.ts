@@ -49,12 +49,16 @@ export interface AutocompleteSuggestion {
   secondaryText?: string;
 }
 
+/** Suggestions near `bias` rank first; farther matches still show up. 50 km is Google's max. */
+const AUTOCOMPLETE_BIAS_RADIUS_METERS = 50_000;
+
 /** Places Autocomplete (New). `sessionToken` should be the same string for every
  * keystroke of one address search and a fresh one per search, per Google's
  * session-based billing — see mobile's AddressAutocompleteField. */
 export async function autocompletePlaces(
   input: string,
   sessionToken?: string,
+  bias?: LatLng,
 ): Promise<AutocompleteSuggestion[]> {
   if (!GOOGLE_MAPS_API_KEY) {
     throw new GoogleMapsError("GOOGLE_MAPS_API_KEY is not configured", 500);
@@ -66,7 +70,20 @@ export async function autocompletePlaces(
       "Content-Type": "application/json",
       "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
     },
-    body: JSON.stringify({ input, ...(sessionToken ? { sessionToken } : {}) }),
+    body: JSON.stringify({
+      input,
+      ...(sessionToken ? { sessionToken } : {}),
+      ...(bias
+        ? {
+            locationBias: {
+              circle: {
+                center: { latitude: bias.lat, longitude: bias.lng },
+                radius: AUTOCOMPLETE_BIAS_RADIUS_METERS,
+              },
+            },
+          }
+        : {}),
+    }),
   });
 
   const data = await response.json();
@@ -96,30 +113,62 @@ export interface LatLng {
   lng: number;
 }
 
+export interface RouteStep {
+  distanceMeters: number;
+  /** Traffic-free time, so speed reflects the road type rather than today's traffic. */
+  staticDurationSeconds: number;
+  instruction: string;
+  encodedPolyline: string;
+}
+
 export interface RouteCandidate {
   distanceMeters: number;
   durationSeconds: number;
   encodedPolyline: string;
+  steps: RouteStep[];
 }
 
-export async function computeRoutes(origin: LatLng, destination: LatLng): Promise<RouteCandidate[]> {
+export interface RouteOptions {
+  avoidHighways?: boolean;
+  /** Pass-through points (no stop). Google returns no alternatives when these are set. */
+  via?: LatLng[];
+}
+
+const toLatLng = (p: LatLng) => ({ latLng: { latitude: p.lat, longitude: p.lng } });
+
+export async function computeRoutes(
+  origin: LatLng,
+  destination: LatLng,
+  options: RouteOptions = {},
+): Promise<RouteCandidate[]> {
   if (!GOOGLE_MAPS_API_KEY) {
     throw new GoogleMapsError("GOOGLE_MAPS_API_KEY is not configured", 500);
   }
 
+  const via = options.via ?? [];
   const response = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
-      "X-Goog-FieldMask": "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline",
+      "X-Goog-FieldMask": [
+        "routes.duration",
+        "routes.distanceMeters",
+        "routes.polyline.encodedPolyline",
+        "routes.legs.steps.distanceMeters",
+        "routes.legs.steps.staticDuration",
+        "routes.legs.steps.navigationInstruction.instructions",
+        "routes.legs.steps.polyline.encodedPolyline",
+      ].join(","),
     },
     body: JSON.stringify({
-      origin: { location: { latLng: { latitude: origin.lat, longitude: origin.lng } } },
-      destination: { location: { latLng: { latitude: destination.lat, longitude: destination.lng } } },
+      origin: { location: toLatLng(origin) },
+      destination: { location: toLatLng(destination) },
+      ...(via.length ? { intermediates: via.map((p) => ({ via: true, location: toLatLng(p) })) } : {}),
       travelMode: "DRIVE",
       routingPreference: "TRAFFIC_AWARE",
-      computeAlternativeRoutes: true,
+      computeAlternativeRoutes: via.length === 0,
+      ...(options.avoidHighways ? { routeModifiers: { avoidHighways: true } } : {}),
     }),
   });
 
@@ -139,5 +188,15 @@ export async function computeRoutes(origin: LatLng, destination: LatLng): Promis
     distanceMeters: route.distanceMeters,
     durationSeconds: parseInt(route.duration, 10),
     encodedPolyline: route.polyline.encodedPolyline,
+    steps: (route.legs ?? []).flatMap((leg: any) =>
+      (leg.steps ?? []).map(
+        (step: any): RouteStep => ({
+          distanceMeters: step.distanceMeters ?? 0,
+          staticDurationSeconds: parseInt(step.staticDuration ?? "0", 10),
+          instruction: step.navigationInstruction?.instructions ?? "",
+          encodedPolyline: step.polyline?.encodedPolyline ?? "",
+        }),
+      ),
+    ),
   }));
 }

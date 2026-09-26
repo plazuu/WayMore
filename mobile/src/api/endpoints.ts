@@ -1,5 +1,5 @@
 import { apiRequest } from './client';
-import type { AddressSuggestion, Narration, NarrationPlace, RouteResponse, RouteTuning } from './types';
+import type { AddressSuggestion, LatLng, Narration, NarrationPlace, RouteResponse, RouteTuning } from './types';
 
 // One function per server endpoint. No app logic here; see src/services for that.
 
@@ -8,10 +8,11 @@ export function getHealth() {
 }
 
 /** Address-autocomplete suggestions as the user types. Pass the same `sessionToken` for
- * every keystroke of one search (Google bills per session when it's reused consistently). */
-export function getAutocomplete(input: string, sessionToken?: string) {
+ * every keystroke of one search (Google bills per session when it's reused consistently).
+ * `bias` ranks places near that point first. */
+export function getAutocomplete(input: string, sessionToken?: string, bias?: LatLng) {
   return apiRequest<{ suggestions: AddressSuggestion[] }>('/autocomplete', {
-    query: { input, sessionToken },
+    query: { input, sessionToken, lat: bias?.latitude, lng: bias?.longitude },
     timeoutMs: 10_000,
   });
 }

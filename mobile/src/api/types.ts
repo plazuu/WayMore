@@ -46,6 +46,10 @@ export interface RouteOption {
   polyline: string;
   samplePointCount: number;
   score: number;
+  /** Road along the water (server-side scenic scoring; debug). */
+  waterfrontMeters?: number;
+  /** Highway not along the water (server-side scenic scoring; debug). */
+  highwayMeters?: number;
   landmarks: Poi[];
   foodStops: Poi[];
 }
@@ -55,7 +59,7 @@ export interface RouteResponse {
   end: GeoPoint;
   /** Fastest candidate. */
   normal: RouteOption;
-  /** Highest landmark score. May be the same route as `normal`. */
+  /** Most waterfront and landmarks within the extra-time budget, avoiding plain highways. May be the same route as `normal`. */
   scenic: RouteOption;
   /** scenic.durationSeconds - normal.durationSeconds, can be 0. */
   extraTimeSeconds: number;

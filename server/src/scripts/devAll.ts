@@ -1,7 +1,7 @@
 // Usage (from server/): npm run dev:all
 // Starts backend/ (narration, port 3001) and server/ (the app's single base
 // URL, port 3000) in watch mode in one terminal. Ctrl+C stops both.
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
@@ -15,12 +15,20 @@ for (const dir of [serverDir, backendDir]) {
   }
 }
 
+const isWindows = process.platform === "win32";
 const children: ChildProcess[] = [];
 let stopping = false;
 
 function start(name: string, cwd: string, color: number) {
-  // Own process group, so stopping it also stops npm's tsx child.
-  const child = spawn("npm", ["run", "dev"], { cwd, detached: true, stdio: ["ignore", "pipe", "pipe"] });
+  // Own process group, so stopping it also stops npm's tsx child. On Windows npm
+  // is npm.cmd (needs a shell) and detached would open a new console window;
+  // stop() kills the tree with taskkill instead.
+  const child = spawn(isWindows ? "npm run dev" : "npm", isWindows ? [] : ["run", "dev"], {
+    cwd,
+    detached: !isWindows,
+    shell: isWindows,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
   const tag = `\x1b[${color}m[${name}]\x1b[0m `;
   for (const stream of [child.stdout, child.stderr]) {
     let partial = "";
@@ -43,7 +51,9 @@ function stop(code = 0) {
   stopping = true;
   for (const child of children) {
     try {
-      if (child.pid) process.kill(-child.pid, "SIGTERM");
+      if (!child.pid) continue;
+      if (isWindows) spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+      else process.kill(-child.pid, "SIGTERM");
     } catch {
       // already gone
     }

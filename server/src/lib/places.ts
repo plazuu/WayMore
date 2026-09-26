@@ -5,6 +5,10 @@ const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
 export const LANDMARK_TYPES = ["tourist_attraction", "park", "museum", "historical_landmark"];
 export const FOOD_TYPES = ["restaurant", "cafe"];
+/** Places that sit on the water; road near them counts as waterfront. */
+export const WATER_TYPES = ["marina", "beach", "fishing_pier", "ferry_terminal", "island"];
+/** Water places a car can drive past, so routing through one hugs the shore (islands can be dead ends). */
+export const WATER_WAYPOINT_TYPES = ["marina", "beach", "fishing_pier"];
 
 const PRICE_LEVEL_DISPLAY: Record<string, string> = {
   PRICE_LEVEL_FREE: "Free",
@@ -30,6 +34,7 @@ export interface Poi {
   lat: number;
   lng: number;
   types: string[];
+  primaryType?: string;
   rating?: number;
   userRatingCount?: number;
   priceLevel?: string;
@@ -45,6 +50,7 @@ export async function searchNearby(
   radiusMeters: number,
   includedTypes: string[],
   maxResultCount = 10,
+  rankPreference: "POPULARITY" | "DISTANCE" = "POPULARITY",
 ): Promise<Poi[]> {
   if (!GOOGLE_MAPS_API_KEY) {
     throw new GoogleMapsError("GOOGLE_MAPS_API_KEY is not configured", 500);
@@ -56,11 +62,12 @@ export async function searchNearby(
       "Content-Type": "application/json",
       "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
       "X-Goog-FieldMask":
-        "places.id,places.displayName,places.location,places.rating,places.userRatingCount,places.types,places.priceLevel,places.photos,places.editorialSummary",
+        "places.id,places.displayName,places.location,places.primaryType,places.rating,places.userRatingCount,places.types,places.priceLevel,places.photos,places.editorialSummary",
     },
     body: JSON.stringify({
       includedTypes,
       maxResultCount,
+      rankPreference,
       locationRestriction: {
         circle: {
           center: { latitude: center.lat, longitude: center.lng },
@@ -85,6 +92,7 @@ export async function searchNearby(
       lat: place.location.latitude,
       lng: place.location.longitude,
       types,
+      primaryType: place.primaryType,
       rating: place.rating,
       userRatingCount: place.userRatingCount,
       priceLevel: place.priceLevel ? PRICE_LEVEL_DISPLAY[place.priceLevel] : undefined,
