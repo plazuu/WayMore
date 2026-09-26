@@ -4,15 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A mobile app that finds the most scenic route between two points, surfaces nearby landmarks and restaurants along the way, and (future phase) narrates them aloud as you pass them, like a local tour guide. See `README.md` for the product pitch and `TODO.md` for the milestone-by-milestone task breakdown (M0–M4) — TODO.md is the source of truth for what's built vs. not yet started.
+A mobile app that finds the most scenic route between two points, surfaces landmarks and restaurants along the way, and narrates them aloud as you pass (live tour guide), with a text chat for passenger questions. `README.md` covers setup, running and the demo; `docs/api.md` is the API for the app team; `TODO.md` is the source of truth for what's built vs. not yet started (milestones M0–M4).
 
-## Repo layout — three separate services, three separate dependency trees
+## Repo layout — three separate packages, three separate dependency trees
 
 - **`mobile/`** — Expo (React Native + TypeScript) client using Expo Router (`src/app/`). One map screen with a phase-driven bottom sheet (plan → preview → tour), wired to `POST /route` and `/narration/pregenerate`, with a built-in demo-data mode for working without the server. See `mobile/README.md` for layout and extension points. Has its own `AGENTS.md`/`CLAUDE.md` (Expo's own agent guidance, imported via `@AGENTS.md`) — read that when working inside `mobile/`, since it covers Expo-SDK-version drift, Expo Router conventions, and EAS build commands that don't apply anywhere else in this repo.
-- **`server/`** — Node/Express + TypeScript API. This is the backend the mobile app talks to; it in turn holds the Google Maps Platform key server-side (Places, Routes, Geocoding, Photos) so the key is never shipped in the mobile bundle. It exposes `GET /health`, `POST /geocode`, `POST /route`, `GET /photo`, and the narration endpoints (`POST /narration`, `POST /narration/pregenerate`, static `/audio/*.mp3`; see `server/API.md` and `docs/narration-api.md`). Narration (Gemini script + Speechify/ElevenLabs TTS, disk cache) currently lives in `server/src/narration/` and `server/src/services/`, not in `backend/`.
-- **`backend/`** — reserved for the future LLM/narration service (TODO.md M3, live tour-guide narration). `backend/main.py` is currently an empty placeholder — do not repurpose it for the Express API above.
+- **`server/`** — Node/Express + TypeScript, port 3000, the app's **single base URL**. Holds the Google Maps key (Places, Routes, Geocoding, Photos) and serves `GET /health` (including the backend's status), `POST /geocode`, `POST /route`, `GET /photo`. Proxies `/tour/*`, `/narration/*`, `/audio/*` and `/dev/*` to `backend/` (`src/routes/proxy.ts`: `BACKEND_URL`, 20 s timeout or 120 s for `/narration`, `502 backend_unavailable`); the proxy is mounted before the JSON body parser so bodies stream through.
+- **`backend/`** — Node/Express + TypeScript narration service, port 3001, internal (only reached through `server/`'s proxy). Holds the OpenAI and Speechify/ElevenLabs keys. Serves the live guide (`POST /tour/start|tick|chat|end`), pregenerated narration (`POST /narration`, `/narration/pregenerate`, used by the app's current tour mode), cached audio (`/audio/*.mp3`) and `GET /dev/demo-path` outside production. Code:
+  - `src/live/` — `session.ts` (sessions, trigger rule, heading fallbacks, background generation queue, staleness), `chat.ts` (chat agent), `geo.ts`, `demoPath.ts` (demo drive + its `/dev` route).
+  - `src/narration/` — `prompts.ts`, `scriptWriter.ts` (cleaner, guardrails, template fallback), `tts.ts` (TTS limiter/retry), `cache.ts` (disk cache keyed by place + side + model + voice).
+  - `src/services/` — `openai.ts` (the LLM: narration `generate()`, chat `chat()` with `web_search` and sources), `speechify.ts`, `elevenlabs.ts`.
+  - `src/routes/tour.ts` — the `/tour/*` and `/audio` routes; `src/routes/narration.ts` — `/narration` and `/narration/pregenerate`.
+  - `src/config.ts` — every tunable: models, timings (`LIVE_GUIDE`), TTS settings.
 
-Each of the three has independent dependencies/lockfiles; there is no shared `node_modules` or monorepo tooling (no workspaces/turborepo) tying them together.
+No shared `node_modules` or monorepo tooling; each package has its own lockfile.
 
 ## Commands
 
@@ -27,25 +32,35 @@ npx tsc --noEmit              # typecheck
 
 **Server (`server/`):**
 ```
-npm run dev    # tsx watch src/index.ts — hot-reload dev server
-npm run build  # tsc -> dist/
-npm run start  # node dist/index.js — run compiled build
+npm run dev:all   # starts backend/ and server/ together in one terminal (Ctrl+C stops both)
+npm run dev       # tsx watch src/index.ts — server only
+npm run build     # tsc -> dist/
+npm run start     # node dist/index.js
 npm run typecheck # tsc on src + test
-npm test          # node:test via tsx (test/*.test.ts)
-npm run pregen:narration  # pregenerate narration for data/demo-places.json
+npm test          # node:test via tsx (proxy tests against a fake backend)
 ```
-Copy `server/.env.example` to `server/.env` and fill in `GOOGLE_MAPS_API_KEY` before running. Narration runs in mock mode (template lines, no audio) when `GEMINI_API_KEY` / the TTS key are missing. `mobile/` has no test runner yet.
+`server/.env`: `GOOGLE_MAPS_API_KEY`, `BACKEND_URL` (default `http://localhost:3001`).
 
-## Architecture / data flow (per TODO.md, not all built yet)
+**Backend (`backend/`):**
+```
+npm run dev       # tsx watch src/index.ts — backend only, port 3001
+npm run build     # tsc -> dist/
+npm run start     # node dist/index.js
+npm run typecheck # tsc on src + test
+npm test          # node:test via tsx (test/*.test.ts), mocks only
+npm run replay:drive  # simulated demo drive through /tour/*; -- --real for real keys, --fresh to bypass the cache
+```
+`backend/.env`: `OPENAI_API_KEY`, `SPEECHIFY_API_KEY`, optional model overrides, and `PUBLIC_BASE_URL` = the app's public URL (the `server/` tunnel) so audio URLs go through the proxy. Without keys it runs in mock mode (template lines, no audio, offline chat reply). `mobile/` has no test runner yet.
 
-The intended pipeline, once M1 lands:
-1. Mobile sends `{start, end}` addresses to the server.
-2. Server geocodes both, fetches candidate routes (Routes API), and samples Places Nearby Search along each route's polyline for landmarks and restaurants.
-3. Server scores each candidate by landmark rating-weighted score (restaurants are suggested stops, not scoring inputs) and picks both the fastest candidate ("normal") and the highest-scoring candidate ("scenic"), then enriches each POI with `description`/`cuisine`/`priceLevel` (currently pulled from Places' own `editorialSummary`/`types`/`priceLevel` fields — only a minority of POIs have a Google-authored summary, so richer coverage still needs web search or an LLM call, both still TODO) and a `photoUrl`.
-4. Single `POST /route` response shape: `{normal: {polyline, distanceMeters, durationSeconds, landmarks[], foodStops[]}, scenic: {...same shape...}, extraTimeSeconds}` — one call returns both routes plus their time difference so the mobile app's normal/scenic toggle needs no second request. This is the only endpoint the mobile app is meant to call directly; it should never call Google Maps APIs itself.
-5. `GET /photo?name=<placePhotoResourceName>` proxies Google's Places Photo Media endpoint server-side and streams the image bytes back — `photoUrl` in the `/route` response is already a relative path to this endpoint. The API key is required as a query param on Google's media endpoint, so this proxy exists specifically to keep the key server-side; the mobile app must never be given a direct Google Photos URL.
+## Architecture / data flow
 
-Later (M3), the `backend/` LLM service consumes the same POI list (already shaped as `{id, name, lat, lng, types, rating, priceLevel?, cuisine?, description?, photoUrl?}` per POI) to generate narration text, which the mobile app plays via `expo-speech` as the user's live location (`expo-location` `watchPosition`) approaches each POI.
+Route search (M1, built):
+1. Mobile sends `{start, end}` addresses to `POST /route`.
+2. The server geocodes both, fetches candidate routes (Routes API), and samples Places Nearby Search along each polyline for landmarks and restaurants.
+3. It picks the fastest candidate ("normal") and the one with the highest landmark rating score ("scenic"; restaurants are suggested stops, not scoring inputs), and enriches each POI with `description`/`cuisine`/`priceLevel` from Places' own fields (only a minority have a Google summary) and a `photoUrl`.
+4. Response: `{normal, scenic, extraTimeSeconds}`, one call for the app's normal/scenic toggle. The app never calls Google APIs itself; `GET /photo` streams Places photos so the key stays server-side.
+
+Live guide (M3, server side built): the app starts a session with the chosen route's POIs mapped to `Place` (`{id, name, kind, lat, lng, category?, description?, facts?}`), then sends GPS ticks (`expo-location`) to `POST /tour/tick` about every 3 s. The backend decides when the car approaches a place, writes the line (OpenAI `gpt-4.1-nano`) and voices it (Speechify) in the background, and returns it on a later tick. `POST /tour/chat` (OpenAI `gpt-4o-mini` with web search) answers passenger questions with the ride as context.
 
 ## Branch workflow
 
