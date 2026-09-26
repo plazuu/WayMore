@@ -145,3 +145,32 @@ test("concurrent narrations share one TTS slot, and a 429 is retried", async () 
   assert.ok(results.every((n) => typeof n.audioUrl === "string"));
   delete process.env.SPEECHIFY_API_KEY;
 });
+
+// --- POST /narration and /narration/pregenerate (the app's current tour mode) ---
+
+test("POST /narration/pregenerate returns one Narration per place, in order", async () => {
+  const res = await request(createApp()).post("/narration/pregenerate").send({ places }).expect(200);
+  assert.equal(res.body.length, 3);
+  res.body.forEach(assertNarration);
+  assert.deepEqual(res.body.map((n: Narration) => n.placeId), ["kaseya", "bass", "tower"]);
+  assert.equal(res.body[0].text, "On your right is Kaseya Center, home of the Miami Heat.");
+});
+
+test("POST /narration returns one Narration", async () => {
+  const res = await request(createApp()).post("/narration").send(places[2]).expect(200);
+  assertNarration(res.body);
+  assert.equal(res.body.placeId, "tower");
+});
+
+test("invalid /narration bodies get 400 { error: string }", async () => {
+  const app = createApp();
+  for (const [url, body] of [
+    ["/narration", { id: "x", name: "X", kind: "museum", lat: 1, lng: 2 }],
+    ["/narration/pregenerate", { places: [] }],
+    ["/narration/pregenerate", { places: [{ id: "x" }] }],
+    ["/narration/pregenerate", { places: Array.from({ length: 101 }, () => places[0]) }],
+  ] as const) {
+    const res = await request(app).post(url).send(body).expect(400);
+    assert.equal(typeof res.body.error, "string", `${url}`);
+  }
+});

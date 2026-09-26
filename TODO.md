@@ -45,7 +45,7 @@ Branch: `feature/mobile-map`
 Branch: `live-guide`
 *Depends on M1 (POI data) + M2 (map/location screen)*
 
-Approach: everything is live, nothing is pregenerated. The app streams GPS ticks; the `backend/` service decides when the car approaches a place, writes the line with OpenAI, voices it with Speechify and returns it on a later tick. A text chat agent answers passenger questions. API and app flow: `docs/api.md`. (The earlier "pregenerate everything" flow, its `/narration` endpoints, and the abandoned `feature/dialog-contract` plan were removed.)
+Approach: everything is live, nothing is pregenerated. The app streams GPS ticks; the `backend/` service decides when the car approaches a place, writes the line with OpenAI, voices it with Speechify and returns it on a later tick. A text chat agent answers passenger questions. API and app flow: `docs/api.md`. (The earlier `/narration/pregenerate` endpoints stay available because the app's current tour mode uses them; the abandoned `feature/dialog-contract` plan was removed.)
 
 Narration service (`backend/`; `backend/src/live/`, `backend/src/routes/tour.ts`):
 - [x] In-memory sessions — `POST /tour/start` / `POST /tour/end`, 2 h idle TTL; `404 unknown_session` → app restarts the session with the same places

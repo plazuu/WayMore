@@ -14,8 +14,8 @@ A mobile app that finds the most scenic route between two points, surfaces landm
 | Folder | What | Port |
 |---|---|---|
 | `mobile/` | Expo (React Native + TypeScript) app | — |
-| `server/` | The app's **only** base URL: route search over Google Maps (`/route`, `/geocode`, `/photo`), and a proxy for `/tour`, `/audio`, `/dev` to `backend/` | 3000 |
-| `backend/` | Narration service: live guide, chat and cached audio, using OpenAI (lines and chat) and Speechify (voice) | 3001 (internal) |
+| `server/` | The app's **only** base URL: route search over Google Maps (`/route`, `/geocode`, `/photo`), and a proxy for `/tour`, `/narration`, `/audio`, `/dev` to `backend/` | 3000 |
+| `backend/` | Narration service: live guide, chat, pregenerated narration and cached audio, using OpenAI (lines and chat) and Speechify (voice) | 3001 (internal) |
 
 All API keys stay in `server/.env` and `backend/.env`; the app never sees them. The API for the app team is in [`docs/api.md`](./docs/api.md).
 

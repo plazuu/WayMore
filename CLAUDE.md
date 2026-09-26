@@ -9,12 +9,12 @@ A mobile app that finds the most scenic route between two points, surfaces landm
 ## Repo layout — three separate packages, three separate dependency trees
 
 - **`mobile/`** — Expo (React Native + TypeScript) client. Still the stock `create-expo-app` blank-typescript template, not yet wired to the server. Has its own `AGENTS.md`/`CLAUDE.md` (Expo's agent guidance, imported via `@AGENTS.md`) — read it when working inside `mobile/`; it covers Expo-SDK-version drift, Expo Router conventions and EAS build commands that don't apply elsewhere.
-- **`server/`** — Node/Express + TypeScript, port 3000, the app's **single base URL**. Holds the Google Maps key (Places, Routes, Geocoding, Photos) and serves `GET /health` (including the backend's status), `POST /geocode`, `POST /route`, `GET /photo`. Proxies `/tour/*`, `/audio/*` and `/dev/*` to `backend/` (`src/routes/proxy.ts`: `BACKEND_URL`, 20 s timeout, `502 backend_unavailable`); the proxy is mounted before the JSON body parser so bodies stream through.
-- **`backend/`** — Node/Express + TypeScript narration service, port 3001, internal (only reached through `server/`'s proxy). Holds the OpenAI and Speechify/ElevenLabs keys. Serves the live guide (`POST /tour/start|tick|chat|end`), cached audio (`/audio/*.mp3`) and `GET /dev/demo-path` outside production. Code:
+- **`server/`** — Node/Express + TypeScript, port 3000, the app's **single base URL**. Holds the Google Maps key (Places, Routes, Geocoding, Photos) and serves `GET /health` (including the backend's status), `POST /geocode`, `POST /route`, `GET /photo`. Proxies `/tour/*`, `/narration/*`, `/audio/*` and `/dev/*` to `backend/` (`src/routes/proxy.ts`: `BACKEND_URL`, 20 s timeout or 120 s for `/narration`, `502 backend_unavailable`); the proxy is mounted before the JSON body parser so bodies stream through.
+- **`backend/`** — Node/Express + TypeScript narration service, port 3001, internal (only reached through `server/`'s proxy). Holds the OpenAI and Speechify/ElevenLabs keys. Serves the live guide (`POST /tour/start|tick|chat|end`), pregenerated narration (`POST /narration`, `/narration/pregenerate`, used by the app's current tour mode), cached audio (`/audio/*.mp3`) and `GET /dev/demo-path` outside production. Code:
   - `src/live/` — `session.ts` (sessions, trigger rule, heading fallbacks, background generation queue, staleness), `chat.ts` (chat agent), `geo.ts`, `demoPath.ts` (demo drive + its `/dev` route).
   - `src/narration/` — `prompts.ts`, `scriptWriter.ts` (cleaner, guardrails, template fallback), `tts.ts` (TTS limiter/retry), `cache.ts` (disk cache keyed by place + side + model + voice).
   - `src/services/` — `openai.ts` (the LLM: narration `generate()`, chat `chat()` with `web_search` and sources), `speechify.ts`, `elevenlabs.ts`.
-  - `src/routes/tour.ts` — the `/tour/*` and `/audio` routes.
+  - `src/routes/tour.ts` — the `/tour/*` and `/audio` routes; `src/routes/narration.ts` — `/narration` and `/narration/pregenerate`.
   - `src/config.ts` — every tunable: models, timings (`LIVE_GUIDE`), TTS settings.
 
 No shared `node_modules` or monorepo tooling; each package has its own lockfile.

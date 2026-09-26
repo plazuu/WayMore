@@ -6,12 +6,12 @@ import { routeRouter } from "./routes/route";
 import { backendHealth, backendProxy } from "./routes/proxy";
 
 export interface AppOptions {
-  /** Tests only: shorter than PROXY_TIMEOUT_MS. */
+  /** Tests only: one timeout for every proxied path. */
   proxyTimeoutMs?: number;
 }
 
 // The app's single base URL. Route search (Google Maps) is served here;
-// /tour, /audio and /dev are proxied to the backend/ narration service.
+// /tour, /audio, /dev and /narration are proxied to the backend/ narration service.
 export function createApp({ proxyTimeoutMs }: AppOptions = {}) {
   const app = express();
   app.use(cors());

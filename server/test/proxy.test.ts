@@ -8,6 +8,7 @@ import { after, before, beforeEach, test } from "node:test";
 import express from "express";
 import request from "supertest";
 import { createApp } from "../src/app";
+import { proxyTimeoutFor } from "../src/routes/proxy";
 
 // A stand-in for backend/: echoes requests, serves an MP3 like the real
 // /audio route, and has a route that never answers.
@@ -30,6 +31,9 @@ fake.post("/tour/tick", (_req, res) => {
 });
 fake.get("/dev/demo-path", (req, res) => {
   res.json({ points: [], intervalMs: 3000, query: req.query });
+});
+fake.post("/narration/pregenerate", (req, res) => {
+  res.json(req.body.places.map((p: { id: string }) => ({ placeId: p.id, text: "x", audioUrl: null, durationHintS: 1 })));
 });
 fake.post("/tour/chat", () => {
   // Never answers: the proxy timeout must kick in.
@@ -139,7 +143,20 @@ test("backend timeout: 502 backend_unavailable", async () => {
   assert.ok(Date.now() - started < 3000);
 });
 
-test("only /tour, /audio and /dev are proxied; route search stays local", async () => {
+test("forwards /narration/pregenerate (the app's current tour mode)", async () => {
+  const res = await request(createApp()).post("/narration/pregenerate").send({ places: [{ id: "a" }, { id: "b" }] }).expect(200);
+  assert.deepEqual(res.body.map((n: { placeId: string }) => n.placeId), ["a", "b"]);
+});
+
+test("/narration gets the 120 s timeout, everything else 20 s", () => {
+  assert.equal(proxyTimeoutFor("/narration/pregenerate"), 120_000);
+  assert.equal(proxyTimeoutFor("/narration"), 120_000);
+  assert.equal(proxyTimeoutFor("/tour/chat"), 20_000);
+  assert.equal(proxyTimeoutFor("/audio/x.mp3"), 20_000);
+  assert.equal(proxyTimeoutFor("/narrationx"), 20_000);
+});
+
+test("only /tour, /audio, /dev and /narration are proxied; route search stays local", async () => {
   const app = createApp();
   await request(app).get("/tourist").expect(404);
   const res = await request(app).post("/geocode").send({}).expect(400);

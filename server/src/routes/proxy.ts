@@ -1,7 +1,13 @@
 import { Readable } from "node:stream";
 import type { ReadableStream as WebReadableStream } from "node:stream/web";
 import type { Request, RequestHandler, Response } from "express";
-import { BACKEND_HEALTH_TIMEOUT_MS, backendUrl, PROXIED_PREFIXES, PROXY_TIMEOUT_MS } from "../config";
+import {
+  BACKEND_HEALTH_TIMEOUT_MS,
+  backendUrl,
+  NARRATION_PROXY_TIMEOUT_MS,
+  PROXIED_PREFIXES,
+  PROXY_TIMEOUT_MS,
+} from "../config";
 
 // Request headers not to forward: hop-by-hop, or recomputed by fetch.
 const SKIP_REQUEST = new Set(["host", "connection", "keep-alive", "transfer-encoding", "upgrade", "content-length", "expect"]);
@@ -17,18 +23,27 @@ function unavailable(res: Response, message: string) {
   res.status(502).json({ error: "backend_unavailable", message });
 }
 
+function hasPrefix(path: string, prefix: string): boolean {
+  return path === prefix || path.startsWith(`${prefix}/`);
+}
+
 function isProxied(path: string): boolean {
-  return PROXIED_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
+  return PROXIED_PREFIXES.some((p) => hasPrefix(path, p));
+}
+
+export function proxyTimeoutFor(path: string): number {
+  return hasPrefix(path, "/narration") ? NARRATION_PROXY_TIMEOUT_MS : PROXY_TIMEOUT_MS;
 }
 
 /**
- * Forwards /tour, /audio and /dev to the backend service and streams the
+ * Forwards /tour, /audio, /dev and /narration to the backend service and streams the
  * response back unchanged (status, headers, body). Mount it before any body
  * parser so request bodies are streamed through untouched.
  */
-export function backendProxy({ timeoutMs = PROXY_TIMEOUT_MS }: { timeoutMs?: number } = {}): RequestHandler {
+export function backendProxy({ timeoutMs: override }: { timeoutMs?: number } = {}): RequestHandler {
   return async (req: Request, res: Response, next) => {
     if (!isProxied(req.path)) return next();
+    const timeoutMs = override ?? proxyTimeoutFor(req.path);
 
     const target = `${backendUrl()}${req.originalUrl}`;
     const headers = new Headers();

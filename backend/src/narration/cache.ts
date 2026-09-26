@@ -5,7 +5,7 @@ import path from "node:path";
 import { audioCacheDir } from "../config";
 import { isLlmAvailable, llmSignature } from "../services/openai";
 import type { Narration, Place } from "../types";
-import { durationHint, writeScript, type Script } from "./scriptWriter";
+import { durationHint, templateLine, writeScript, type Script } from "./scriptWriter";
 import { isTtsAvailable, synthesizeToFile, voiceSignature } from "./tts";
 
 export const AUDIO_ROUTE = "/audio";
@@ -110,4 +110,31 @@ export function getNarration(place: Place): Promise<Narration> {
     inFlight.set(key, pending);
   }
   return pending;
+}
+
+const PREGEN_CONCURRENCY = 4;
+
+/**
+ * Narration for a whole route up front (POST /narration/pregenerate, used by
+ * the current app). Never rejects: a place that fails gets its template line
+ * with audioUrl: null. TTS calls still share the one limiter in tts.ts.
+ */
+export async function pregenerate(places: Place[], concurrency = PREGEN_CONCURRENCY): Promise<Narration[]> {
+  const results: Narration[] = new Array(places.length);
+  let next = 0;
+  async function worker() {
+    while (next < places.length) {
+      const i = next++;
+      const place = places[i];
+      try {
+        results[i] = await getNarration(place);
+      } catch (err) {
+        console.warn(`[narration] failed for ${place.id}:`, (err as Error).message);
+        const text = templateLine(place);
+        results[i] = { placeId: place.id, text, audioUrl: null, durationHintS: durationHint(text) };
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, places.length) }, worker));
+  return results;
 }

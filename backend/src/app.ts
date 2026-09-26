@@ -4,6 +4,7 @@ import { llmConfig, ttsConfig } from "./config";
 import type { ChatLlm } from "./live/chat";
 import { SessionStore, type SessionStoreOptions } from "./live/session";
 import { devRouter } from "./live/demoPath";
+import { narrationRouter } from "./routes/narration";
 import { audioRouter, createTourRouter, tourErrorHandler } from "./routes/tour";
 
 export interface AppOptions extends SessionStoreOptions {
@@ -13,7 +14,8 @@ export interface AppOptions extends SessionStoreOptions {
   chatTimeoutMs?: number;
 }
 
-// Narration service: live guide (/tour/*), chat and the cached audio (/audio).
+// Narration service: live guide (/tour/*), chat, pregenerated narration
+// (/narration, used by the current app) and the cached audio (/audio).
 // The app reaches it through server/'s proxy; route search lives in server/.
 export function createApp({ store, now, narrate, chatLlm, chatTimeoutMs }: AppOptions = {}) {
   const app = express();
@@ -30,6 +32,7 @@ export function createApp({ store, now, narrate, chatLlm, chatTimeoutMs }: AppOp
     });
   });
 
+  app.use(narrationRouter);
   app.use(audioRouter);
   app.use(createTourRouter({ store: store ?? new SessionStore({ now, narrate }), chatLlm, chatTimeoutMs }));
   if (process.env.NODE_ENV !== "production") app.use(devRouter);

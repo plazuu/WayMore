@@ -11,11 +11,16 @@ export const MIN_SEARCH_RADIUS_METERS = 100;
 export const MAX_SEARCH_RADIUS_METERS = 2000;
 
 // --- Backend proxy ---
-// /tour, /audio and /dev are forwarded to the backend/ narration service, so
-// the app (and the demo tunnel) needs only this server's URL.
-export const PROXIED_PREFIXES = ["/tour", "/audio", "/dev"];
-/** Longer than the backend's slowest call (chat has a 12 s budget). */
+// /tour, /audio, /dev and /narration are forwarded to the backend/ narration
+// service, so the app (and the demo tunnel) needs only this server's URL.
+export const PROXIED_PREFIXES = ["/tour", "/audio", "/dev", "/narration"];
+/** Longer than the backend's slowest live call (chat has a 12 s budget). */
 export const PROXY_TIMEOUT_MS = 20_000;
+/**
+ * /narration/pregenerate voices a whole route on first use (TTS runs one
+ * request at a time), so it gets the same 120 s the app waits for it.
+ */
+export const NARRATION_PROXY_TIMEOUT_MS = 120_000;
 /** /health's check of the backend's /health. */
 export const BACKEND_HEALTH_TIMEOUT_MS = 2_000;
 

@@ -1,10 +1,11 @@
 # API for the app team
 
-One base URL for everything: `server/` on port 3000. Locally that's `http://<laptop LAN IP>:3000` (or `http://localhost:3000` from the iOS Simulator); for the demo it's the cloudflared tunnel URL. `server/` serves route search itself and forwards `/tour/*`, `/audio/*` and `/dev/*` to the internal narration service (`backend/`, port 3001). Never call port 3001 or any Google/OpenAI API from the app: the keys stay on the server.
+One base URL for everything: `server/` on port 3000. Locally that's `http://<laptop LAN IP>:3000` (or `http://localhost:3000` from the iOS Simulator); for the demo it's the cloudflared tunnel URL. `server/` serves route search itself and forwards `/tour/*`, `/narration/*`, `/audio/*` and `/dev/*` to the internal narration service (`backend/`, port 3001). Never call port 3001 or any Google/OpenAI API from the app: the keys stay on the server.
 
 - [Errors](#errors)
 - [Route search](#route-search): `GET /health`, `POST /geocode`, `POST /route`, `GET /photo`
 - [Live guide](#live-guide): app flow, `POST /tour/start`, `/tour/tick`, `/tour/chat`, `/tour/end`, `GET /dev/demo-path`
+- [Pregenerated narration](#pregenerated-narration): `POST /narration/pregenerate`, `POST /narration` (what the app's tour mode uses today)
 - [Playing narration](#playing-narration)
 
 ## Errors
@@ -19,7 +20,8 @@ Every error body is `{ "error": "<code or message>", "message"?: "<text>" }`.
 | 400 | `/tour/*` | `bad_request` | missing/invalid fields, malformed JSON |
 | 400 | `/tour/chat` | `message_too_long` | message over 500 characters |
 | 404 | `/tour/*` | `unknown_session` | session unknown (server restarted, 2 h idle, or ended): call `/tour/start` again |
-| 502 | `/tour/*`, `/audio/*`, `/dev/*` | `backend_unavailable` | narration service down or no answer within 20 s: retry on the next tick |
+| 400 | `/narration/*` | a message | invalid place(s) |
+| 502 | `/tour/*`, `/narration/*`, `/audio/*`, `/dev/*` | `backend_unavailable` | narration service down or no answer in time (20 s; 120 s for `/narration/*`): retry |
 
 LLM or voice failures never produce a 5xx: you get a fallback line, `audioUrl: null`, or the chat fallback reply.
 
@@ -214,6 +216,26 @@ Not available when the backend runs with `NODE_ENV=production`.
 ```
 
 A 2-minute drive (40 points) north on Biscayne Blvd past Bayside Marketplace (right), Freedom Tower (left) and Kaseya Center (right). Start the session with **exactly these `places`** so narration plays from the server's disk cache, then send one point per tick as `{ sessionId, ...point }` every `intervalMs`, still awaiting each response.
+
+## Pregenerated narration
+
+The app's current tour mode: ask for every place's line and audio when the trip starts, then trigger playback on the phone as the car approaches each place. The [live guide](#live-guide) is the server-driven alternative that also adds chat; both share the same disk cache and voice.
+
+### `POST /narration/pregenerate`
+
+`{ "places": Place[] }` (1–100 places, `Place` as in `/tour/start`, plus an optional `side`: `"left" | "right" | "ahead"`) → one `Narration` per place, **in the same order**:
+
+```json
+[
+  { "placeId": "ChIJ...kaseya", "text": "On your right is Kaseya Center, home of the Miami Heat.", "audioUrl": "/audio/ChIJ___kaseya-3f9a0c1b2d.mp3", "durationHintS": 3.8 }
+]
+```
+
+`audioUrl` is always relative here (prefix it with the base URL) and `null` when there's no audio. A place that fails still gets an entry, with a fallback line and `audioUrl: null`. The first call for a route can take a while (voices are generated one at a time); later calls come from the cache. The proxy waits up to 120 s.
+
+### `POST /narration`
+
+Same for one place: the body is one `Place`, the response one `Narration`.
 
 ## Playing narration
 
