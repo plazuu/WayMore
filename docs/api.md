@@ -3,7 +3,7 @@
 One base URL for everything: `server/` on port 3000. Locally that's `http://<laptop LAN IP>:3000` (or `http://localhost:3000` from the iOS Simulator); for the demo it's the cloudflared tunnel URL. `server/` serves route search itself and forwards `/tour/*`, `/narration/*`, `/audio/*` and `/dev/*` to the internal narration service (`backend/`, port 3001). Never call port 3001 or any Google/OpenAI API from the app: the keys stay on the server.
 
 - [Errors](#errors)
-- [Route search](#route-search): `GET /health`, `POST /geocode`, `POST /route`, `GET /photo`
+- [Route search](#route-search): `GET /health`, `POST /geocode`, `GET /autocomplete`, `POST /route`, `GET /photo`
 - [Live guide](#live-guide): app flow, `POST /tour/start`, `/tour/tick`, `/tour/chat`, `/tour/end`, `GET /dev/demo-path`
 - [Pregenerated narration](#pregenerated-narration): `POST /narration/pregenerate`, `POST /narration` (what the app's tour mode uses today)
 - [Playing narration](#playing-narration)
@@ -41,6 +41,22 @@ LLM or voice failures never produce a 5xx: you get a fallback line, `audioUrl: n
 { "address": "1600 Amphitheatre Parkway, Mountain View, CA" }
 ```
 → `{ "lat": 37.42, "lng": -122.08, "formattedAddress": "1600 Amphitheatre Pkwy, ..." }`
+
+### `GET /autocomplete?input=<partial text>&sessionToken=<opaque string>`
+
+Places Autocomplete (New) proxy, so the app gets the same fill-in-address-as-you-type suggestions a normal map app has, without the Google key ever reaching the client.
+
+`sessionToken` is optional but should be the same string for every keystroke of one address search and a fresh one per search — Google bills per session when it's reused consistently.
+
+```json
+{
+  "suggestions": [
+    { "placeId": "ChIJ...", "text": "Golden Gate Bridge, San Francisco, CA, USA", "mainText": "Golden Gate Bridge", "secondaryText": "San Francisco, CA, USA" }
+  ]
+}
+```
+
+Pass a suggestion's `text` straight to `/geocode` or `/route` — no separate Place Details call needed.
 
 ### `POST /route`
 
@@ -91,8 +107,6 @@ interface Poi {
 ### `GET /photo?name=<places/.../photos/...>&maxWidthPx=800`
 
 Streams a Places photo (the Google key stays server-side). Don't build this URL yourself: use `${BASE_URL}${poi.photoUrl}` in an `<Image>`. `maxWidthPx` is clamped to 100–1600.
-
-Not built yet: address autocomplete. If the input screen adds Places Autocomplete, it needs a new server-side proxy endpoint, like `/photo`.
 
 ## Live guide
 

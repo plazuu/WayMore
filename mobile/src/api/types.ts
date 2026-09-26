@@ -12,6 +12,14 @@ export interface GeoPoint {
   formattedAddress: string;
 }
 
+export interface AddressSuggestion {
+  placeId: string;
+  /** Full, unambiguous address — pass this straight to postRoute/geocode. */
+  text: string;
+  mainText: string;
+  secondaryText?: string;
+}
+
 export interface Poi {
   id: string;
   name: string;
