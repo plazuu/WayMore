@@ -120,7 +120,7 @@ interface Poi {
 
 ### `GET /photo?name=<places/.../photos/...>&maxWidthPx=800`
 
-Redirects (302) to the photo on Google's CDN, so the Google key stays server-side but the image bytes come straight from Google instead of through us. Don't build this URL yourself: use `${BASE_URL}${poi.photoUrl}` in an `<Image>` — any HTTP client follows the redirect. `maxWidthPx` is clamped to 100–1600; ask for the same width everywhere so the client caches one copy per photo. The resolved CDN URL is cached in memory for 30 min and the redirect carries a matching `Cache-Control`.
+Streams a Places photo (the Google key stays server-side). Don't build this URL yourself: use `${BASE_URL}${poi.photoUrl}` in an `<Image>`. `maxWidthPx` is clamped to 100–1600.
 
 ## Live guide
 

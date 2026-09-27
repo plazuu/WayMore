@@ -3,7 +3,6 @@ import { buildMockRoute } from '@/api/mock/mockRoute';
 import { TOUR } from '@/config';
 import { toNarrationPlace } from '@/features/tour/narrationText';
 import { distanceMeters } from '@/lib/geo';
-import { prefetchPoiPhotos } from '@/lib/photos';
 import { getTripPois } from '@/state/selectors';
 
 import type { Narration, RouteResponse, TripPoi } from '@/api/types';
@@ -25,16 +24,6 @@ export async function planRoute(start: string, end: string, settings: AppSetting
     // 0 means automatic: leave it out so the server scales it with the trip.
     maxExtraMinutes: settings.maxExtraMinutes > 0 ? settings.maxExtraMinutes : undefined,
   });
-}
-
-/**
- * Starts downloading the photos of every POI on both routes as soon as the
- * route arrives, so the card list and the detail card show them right away.
- * Without this each photo is only requested when its card first renders, which
- * means a visible wait on scroll and on tapping a POI.
- */
-export function warmPoiPhotos(route: RouteResponse): void {
-  prefetchPoiPhotos([route.scenic, route.normal].flatMap((option) => getTripPois(option, 'all')));
 }
 
 // Voiced narrations received this session, by POI id. The server caches every

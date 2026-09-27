@@ -81,15 +81,3 @@ export const BACKEND_HEALTH_TIMEOUT_MS = 2_000;
 export function backendUrl(): string {
   return (process.env.BACKEND_URL || "http://localhost:3001").replace(/\/+$/, "");
 }
-
-// --- Places photos (GET /photo) ---
-/**
- * /photo resolves a Places photo name to its signed CDN URL and redirects the
- * client there, so image bytes never pass through this server. The resolved URL
- * is reused for this long; Google's links outlive it comfortably, and the
- * Cache-Control on the redirect matches, so a phone re-asks at the same rate.
- */
-export const PHOTO_CACHE_TTL_MS = 30 * 60 * 1000;
-/** Resolved URLs kept in memory (oldest dropped first). ~50 POIs per route. */
-export const PHOTO_CACHE_MAX_ENTRIES = 2000;
-export const PHOTO_FETCH_TIMEOUT_MS = 8_000;

@@ -28,7 +28,7 @@ export function PoiCard({ poi, onPress }: PoiCardProps) {
       accessibilityLabel={`${poi.name}, ${category.label}`}
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.8 }]}
     >
-      <PoiPhoto poi={poi} style={styles.photo} />
+      <PoiPhoto poi={poi} style={styles.photo} maxWidthPx={400} />
       <View style={[styles.kindBar, { backgroundColor: category.color }]} />
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={1}>
