@@ -12,6 +12,7 @@ Rules:
 - Use ONLY the facts provided. Never invent dates, numbers, names, prices, or dishes.
 - Pick the single most interesting fact rather than listing several.
 - For restaurants, frame it as a suggested food stop (for example "If you're hungry, ..."). Mention what it's known for only if the facts say so.
+- Contextual priority: focus on iconic cultural, historical, geographical, and architectural landmarks over generic retail, gas stations, or fast-food chains, even if commercial spots have perfect customer ratings. Treat unique regional sights (like the Everglades, arenas, or historic towers) as top tier and give them your most vivid line; if you are given a chain or generic store, keep it to one short, plain sentence.
 - Sound like a friend, not a museum audio guide. Do not end with a question.`;
 
 export function directionPhrase(side: Place["side"]): string {

@@ -4,6 +4,7 @@ import { getNarration } from "../narration/cache";
 import { durationHint, templateLine } from "../narration/scriptWriter";
 import type { Narration, Place } from "../types";
 import { bearingDeg, distanceMeters, relativeAngle, sideOf, type LatLng } from "./geo";
+import { importanceScore } from "./importance";
 
 export type Side = "left" | "right" | "ahead";
 
@@ -199,16 +200,23 @@ export class SessionStore {
       s.narrated.push({ ...pick(narration), at: now });
     }
 
-    // Trigger the nearest place that qualifies.
+    // Of the places that qualify, trigger the most important one (see importance.ts):
+    // a heritage sight beats a chain whatever their ratings; within a tier, the
+    // nearer and better-rated one wins. Chains still narrate when nothing else qualifies.
     const speed = input.speedMps !== undefined && input.speedMps >= 0 ? input.speedMps : 0;
     let best: Place | null = null;
+    let bestScore = -Infinity;
     for (const p of s.places) {
       const t = s.track(p.id);
       if (t.status !== "idle" || t.behind) continue;
       const d = t.distance!;
       const eta = d / Math.max(speed, cfg.etaMinSpeedMps);
       if (eta > cfg.triggerEtaS && d > cfg.triggerDistanceM) continue;
-      if (!best || d < s.track(best.id).distance!) best = p;
+      const score = importanceScore(p, d);
+      if (score > bestScore) {
+        best = p;
+        bestScore = score;
+      }
     }
     if (best) {
       const r = rel.get(best.id) ?? null;
