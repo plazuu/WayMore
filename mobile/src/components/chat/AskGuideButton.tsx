@@ -2,24 +2,34 @@ import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'rea
 
 import { colors, radii, shadows, spacing } from '@/theme';
 
-import { Icon } from '../ui/Icon';
+import { Icon, type IconName } from '../ui/Icon';
 
 interface AskGuideButtonProps {
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
+  /** Defaults are the tour's Ask Guide chat; the "Where to?" guide passes its own. */
+  label?: string;
+  icon?: IconName;
+  accessibilityLabel?: string;
 }
 
-/** Floating pill over the map during a tour; opens the guide chat. */
-export function AskGuideButton({ onPress, style }: AskGuideButtonProps) {
+/** Floating pill over the map that opens a guide chat. */
+export function AskGuideButton({
+  onPress,
+  style,
+  label = 'Ask Guide',
+  icon = 'chat',
+  accessibilityLabel = 'Ask the guide a question',
+}: AskGuideButtonProps) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel="Ask the guide a question"
+      accessibilityLabel={accessibilityLabel}
       style={({ pressed }) => [styles.pill, shadows.floating, pressed && { opacity: 0.85 }, style]}
     >
-      <Icon name="chat" size={16} />
-      <Text style={styles.label}>Ask Guide</Text>
+      <Icon name={icon} size={16} />
+      <Text style={styles.label}>{label}</Text>
     </Pressable>
   );
 }
