@@ -34,9 +34,10 @@ export const DETOUR_TIME_PENALTY_PER_MINUTE = 0.15;
 // A hand-picked stop counts this many times a Places result of the same rating.
 export const CURATED_SCORE_WEIGHT = 2;
 // A scenic route may cost at most this much extra time over the fastest one:
-// the smaller of a fixed cap and a fraction of the fastest trip.
-export const MAX_EXTRA_SECONDS_FOR_SCENIC = 600;
-export const MAX_EXTRA_FRACTION_FOR_SCENIC = 0.3;
+// a flat allowance plus a fraction of the fastest trip, so the budget scales
+// with trip length (17 min trip: about 8 min extra; 44 min trip: about 14).
+export const SCENIC_BASE_EXTRA_SECONDS = 300;
+export const SCENIC_EXTRA_FRACTION = 0.2;
 // Upper bound for the maxExtraMinutes request param on POST /route.
 export const MAX_EXTRA_MINUTES_LIMIT = 60;
 // Scenic scoring multiplier for nature stops, so the scenic route favors

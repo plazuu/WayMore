@@ -11,7 +11,7 @@ export interface AppSettings {
   /** Passed to POST /route. Lower means more POIs but more Places API calls. */
   sampleIntervalMeters: number;
   searchRadiusMeters: number;
-  /** Passed to POST /route. Extra minutes the scenic route may cost over the fastest one. */
+  /** Passed to POST /route. Extra minutes the scenic route may cost over the fastest one. 0 = automatic (5 min + 20% of the trip). */
   maxExtraMinutes: number;
   /** Drive a fake position along the route instead of using GPS. */
   simulateDrive: boolean;
@@ -31,7 +31,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   useMockData: false,
   sampleIntervalMeters: 1200,
   searchRadiusMeters: 500,
-  maxExtraMinutes: 10,
+  maxExtraMinutes: 0,
   simulateDrive: true,
   simulatedSpeedMps: 20,
   triggerRadiusMeters: TOUR.triggerRadiusMeters,

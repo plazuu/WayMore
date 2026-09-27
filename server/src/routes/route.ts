@@ -6,6 +6,7 @@ import { scoreCandidate } from "../lib/scoring";
 import { filterLandmarks, filterFoodStops } from "./filter";
 import { curatedOnRoute } from "../lib/curated";
 import { findScenicDetours } from "../lib/detours";
+import { scenicBudgetSeconds } from "../lib/budget";
 import {
   DEFAULT_SAMPLE_INTERVAL_METERS,
   MIN_SAMPLE_INTERVAL_METERS,
@@ -15,8 +16,6 @@ import {
   MAX_SEARCH_RADIUS_METERS,
   MAX_LANDMARKS_PER_ROUTE,
   MAX_EXTRA_MINUTES_LIMIT,
-  MAX_EXTRA_SECONDS_FOR_SCENIC,
-  MAX_EXTRA_FRACTION_FOR_SCENIC,
 } from "../config";
 
 export const routeRouter = Router();
@@ -89,12 +88,7 @@ routeRouter.post("/route", async (req, res) => {
     const candidates: Array<RouteCandidate & { viaIds?: string[] }> = [...baseCandidates];
 
     const fastestBase = baseCandidates.reduce((a, c) => (c.durationSeconds < a.durationSeconds ? c : a));
-    // An explicit maxExtraMinutes (query param) wins; otherwise the default is
-    // the smaller of a fixed cap and a fraction of the fastest trip.
-    const allowedExtra =
-      maxExtraMinutes !== undefined
-        ? maxExtraMinutes * 60
-        : Math.min(MAX_EXTRA_SECONDS_FOR_SCENIC, fastestBase.durationSeconds * MAX_EXTRA_FRACTION_FOR_SCENIC);
+    const allowedExtra = scenicBudgetSeconds(fastestBase.durationSeconds, maxExtraMinutes);
 
     // Cross-reference the hand-picked landmark list against the fastest route and
     // search for a detour through great ones it misses (see lib/detours.ts).
