@@ -5,6 +5,7 @@ import path from "node:path";
 import { audioCacheDir } from "../config";
 import { isLlmAvailable, llmSignature } from "../services/openai";
 import type { Narration, Place } from "../types";
+import { PROMPT_VERSION } from "./prompts";
 import { durationHint, templateLine, writeScript, type Script } from "./scriptWriter";
 import { isTtsAvailable, synthesizeToFile, voiceSignature } from "./tts";
 
@@ -38,6 +39,7 @@ export function cacheKey(place: Place): string {
         place.description ?? null,
         place.facts ?? [],
         llmSignature(),
+        PROMPT_VERSION,
         ...voiceSignature(),
       ]),
     )

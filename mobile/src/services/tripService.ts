@@ -1,8 +1,8 @@
 import { ApiError } from '@/api/client';
-import { postNarrationPregenerate, postRoute } from '@/api/endpoints';
+import { getNarrationIntro, postNarrationPregenerate, postRoute } from '@/api/endpoints';
 import { buildMockRoute } from '@/api/mock/mockRoute';
-import { CURRENT_LOCATION_LABEL, TOUR } from '@/config';
-import { getCurrentLocation } from '@/features/location/currentLocation';
+import { TOUR } from '@/config';
+import { getCurrentLocation, isCurrentLocationLabel } from '@/features/location/currentLocation';
 import { toNarrationPlace } from '@/features/tour/narrationText';
 import { distanceMeters } from '@/lib/geo';
 import { getTripPois } from '@/state/selectors';
@@ -33,7 +33,7 @@ export async function planRoute(start: string, end: string, settings: AppSetting
  * server's geocoder accepts like an address.
  */
 async function resolveCurrentLocation(place: string): Promise<string> {
-  if (place.trim().toLowerCase() !== CURRENT_LOCATION_LABEL.toLowerCase()) return place;
+  if (!isCurrentLocationLabel(place)) return place;
   const here = await getCurrentLocation();
   if (!here) throw new ApiError("Couldn't get your location. Allow location access, or type a starting address.");
   return `${here.latitude.toFixed(6)},${here.longitude.toFixed(6)}`;
@@ -43,6 +43,14 @@ async function resolveCurrentLocation(place: string): Promise<string> {
 // clip on disk, so one fetched once (by the preview warm-up or an earlier tour)
 // never needs asking for again.
 const received = new Map<string, Narration>();
+
+// The voiced trip greeting, once fetched (the same for every trip).
+let intro: Narration | undefined;
+
+/** The server's voiced trip greeting, if it has arrived. */
+export function receivedIntro(): Narration | undefined {
+  return intro;
+}
 
 /** The server's voiced narration for a POI, if it has arrived. */
 export function receivedNarration(poiId: string): Narration | undefined {
@@ -83,7 +91,16 @@ export function warmStartNarrations(route: RouteResponse): void {
     .sort((a, b) => a.distance - b.distance)
     .slice(0, TOUR.warmupMaxPlaces)
     .map(({ poi }) => poi);
+  // The greeting plays first, so fetch it before the places.
+  const introReady = intro
+    ? Promise.resolve()
+    : getNarrationIntro()
+        .then((n) => {
+          if (n.audioUrl) intro = n;
+        })
+        .catch(() => {});
   void (async () => {
+    await introReady;
     // Batches in order, so the nearest arrive first.
     for (let i = 0; i < nearest.length; i += TOUR.prefetchBatchSize) {
       await fetchNarrations(nearest.slice(i, i + TOUR.prefetchBatchSize));

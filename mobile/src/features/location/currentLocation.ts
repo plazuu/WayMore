@@ -1,6 +1,26 @@
 import * as Location from 'expo-location';
 
+import { CURRENT_LOCATION_LABEL } from '@/config';
+
 import type { LatLng } from '@/api/types';
+
+/** True when a start/end field holds the "Current location" placeholder rather than an address. */
+export function isCurrentLocationLabel(text: string | undefined): boolean {
+  return (text ?? '').trim().toLowerCase() === CURRENT_LOCATION_LABEL.toLowerCase();
+}
+
+/**
+ * True only when the user has already said no to location access. Doesn't prompt,
+ * so it's safe to call before deciding whether to offer "Current location".
+ */
+export async function isLocationDenied(): Promise<boolean> {
+  try {
+    const { status } = await Location.getForegroundPermissionsAsync();
+    return status === Location.PermissionStatus.DENIED;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * The phone's position right now, for things that need it once (the "Where

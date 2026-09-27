@@ -80,7 +80,28 @@ export function normalizeForMatch(s: string): string {
 export function passesGuardrails(text: string, place: Place): boolean {
   if (countWords(text) < MIN_WORDS) return false;
   if (text.trim().endsWith("?")) return false;
+  if (!sideIsConsistent(text, place.side)) return false;
   return normalizeForMatch(text).includes(normalizeForMatch(place.name));
+}
+
+// "your left", "on the right", "to your left", "look left", "left-hand side"... but not
+// "just the right spot". The passenger side is the right and the driver's side the left
+// (US cars), so "passenger window" counts as right and "driver's side" as left.
+const SIDE_MENTION =
+  /\b(?:(?:on|to)\s+(?:your|the)|your|look)\s+(left|right)\b|\b(left|right)(?:-hand)?\s+side\b|\b(passenger|driver)(?:['’]?s)?[\s-]+(?:side|window|seat)\b/gi;
+const SIDE_WORD: Record<string, "left" | "right"> = { left: "left", right: "right", passenger: "right", driver: "left" };
+
+/**
+ * The side comes from the car's heading (live/geo.ts), so the LLM may only repeat
+ * it: a line for a place on the right must never say "left", and a line without a
+ * known left/right ("ahead" or no side) must not name one at all.
+ */
+export function sideIsConsistent(text: string, side: Place["side"]): boolean {
+  for (const match of text.matchAll(SIDE_MENTION)) {
+    const said = SIDE_WORD[(match[1] ?? match[2] ?? match[3]).toLowerCase()];
+    if (said !== side) return false;
+  }
+  return true;
 }
 
 function lowerFirst(s: string): string {

@@ -5,6 +5,7 @@ import {
   countWords,
   durationHint,
   passesGuardrails,
+  sideIsConsistent,
   templateLine,
 } from "../src/narration/scriptWriter";
 import type { Place } from "../src/types";
@@ -67,7 +68,7 @@ test("passesGuardrails requires the name, a minimum length, and no trailing ques
 });
 
 test("passesGuardrails accepts spelled-out street abbreviations in the name", () => {
-  const cafe: Place = { ...kaseya, name: "Versailles on SW 8th St", kind: "restaurant" };
+  const cafe: Place = { ...kaseya, name: "Versailles on SW 8th St", kind: "restaurant", side: "left" };
   assert.ok(passesGuardrails("Coming up on your left is Versailles on SW 8th Street, a Cuban classic.", cafe));
   const blvd: Place = { ...kaseya, name: "Biscayne Blvd Park" };
   assert.ok(passesGuardrails("On your right is Biscayne Boulevard Park, right by the bay.", blvd));
@@ -75,4 +76,24 @@ test("passesGuardrails accepts spelled-out street abbreviations in the name", ()
 
 test("durationHint is words / 2.86", () => {
   assert.equal(durationHint(Array(20).fill("w").join(" ")), 7);
+});
+
+test("sideIsConsistent: the line may only repeat the computed side", () => {
+  // Heading north with the place to the east (clockwise) is "right"; heading south, the same place is "left".
+  assert.ok(sideIsConsistent("On your right is Freedom Tower.", "right"));
+  assert.ok(sideIsConsistent("Coming up on your left, Freedom Tower.", "left"));
+  assert.ok(!sideIsConsistent("On your left is Freedom Tower.", "right"));
+  assert.ok(!sideIsConsistent("Look to the right-hand side for Freedom Tower.", "left"));
+  assert.ok(!sideIsConsistent("On your right, then on your left, Freedom Tower.", "right"));
+  // No known side: naming one is a guess.
+  assert.ok(!sideIsConsistent("On your right is Freedom Tower.", "ahead"));
+  assert.ok(!sideIsConsistent("On your right is Freedom Tower.", undefined));
+  assert.ok(sideIsConsistent("Straight ahead is Freedom Tower.", "ahead"));
+  // Idioms aren't directions.
+  assert.ok(sideIsConsistent("Just the right spot for a Cuban coffee at Versailles.", "left"));
+  assert.ok(sideIsConsistent("You're right next to Freedom Tower.", undefined));
+});
+
+test("a line that flips the side fails the guardrails, so the template (with the right side) is used", () => {
+  assert.ok(!passesGuardrails("On your left is the Kaseya Center, home of the Heat!", { ...kaseya, side: "right" }));
 });

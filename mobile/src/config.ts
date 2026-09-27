@@ -32,6 +32,10 @@ export const DEFAULT_MAP_REGION = {
  */
 export const CURRENT_LOCATION_LABEL = 'Current location';
 
+/** Played at tour start when the server's voiced greeting hasn't arrived (device voice only). Mirrors backend/src/narration/intro.ts. */
+export const INTRO_FALLBACK_TEXT =
+  "Hey, I'm your scenic copilot! Sit back and enjoy the ride. I'll call out the cool spots as we go. Ask me anything!";
+
 /** "Where to?" guide. The server rejects longer messages with 400 message_too_long. */
 export const DESTINATION_GUIDE = {
   maxMessageChars: 500,

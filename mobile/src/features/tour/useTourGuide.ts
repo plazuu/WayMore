@@ -2,8 +2,8 @@ import { setAudioModeAsync } from 'expo-audio';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { resolveServerUrl } from '@/api/client';
-import { TOUR } from '@/config';
-import { fetchNarrations, receivedNarration } from '@/services/tripService';
+import { INTRO_FALLBACK_TEXT, TOUR } from '@/config';
+import { fetchNarrations, receivedIntro, receivedNarration } from '@/services/tripService';
 import type { AppSettings } from '@/state/SettingsContext';
 
 import { NarrationController, type NarrationSnapshot } from './NarrationController';
@@ -65,6 +65,20 @@ export function useTourGuide({ active, pois, position, settings }: UseTourGuideO
     });
     controllerRef.current = controller;
     const unsubscribe = controller.subscribe(setSnapshot);
+
+    // Greeting first, before any place. Skipped when narration is muted, or when it
+    // could only be a silent caption (no server voice yet, device voice off), which
+    // would just hold up the first place.
+    const s = settingsRef.current;
+    const intro = receivedIntro();
+    if ((s.narrateLandmarks || s.narrateFood) && (intro || s.useDeviceVoice)) {
+      const text = intro?.text ?? INTRO_FALLBACK_TEXT;
+      const at = positionRef.current?.coords ?? { latitude: poisRef.current[0]?.lat ?? 0, longitude: poisRef.current[0]?.lng ?? 0 };
+      controller.enqueue(
+        { id: 'intro', name: 'Your scenic copilot', kind: 'landmark', types: [], lat: at.latitude, lng: at.longitude },
+        intro ?? { placeId: 'intro', text, audioUrl: null, durationHintS: Math.max(3, text.split(/\s+/).length / 2.6) },
+      );
+    }
 
     let cancelled = false;
     let fetching = false;

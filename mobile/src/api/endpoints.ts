@@ -47,6 +47,11 @@ export function postNarrationPregenerate(places: NarrationPlace[]) {
   });
 }
 
+/** The trip's opening greeting ("I'm your scenic copilot..."), voiced like a place's line. */
+export function getNarrationIntro() {
+  return apiRequest<Narration>('/narration/intro', { timeoutMs: 30_000 });
+}
+
 export function postNarration(place: NarrationPlace) {
   return apiRequest<Narration>('/narration', { method: 'POST', body: place, timeoutMs: 30_000 });
 }
