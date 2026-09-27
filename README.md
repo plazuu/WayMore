@@ -8,7 +8,7 @@ Google Maps gets you there fastest. This gets you there **worth remembering** �
 for what you'll see out the window, with a guide riding along who knows what everything is.
 
 - **Two routes, one tap.** Every search returns both the fastest route and the most scenic one,
-  with the honest price of the detour on the toggle (`+7 min`). Scenic means measured: least
+  with the honest price of the detour on the toggle (`+8 min`). Scenic means measured: least
   highway, most waterfront, best-rated landmarks — within a time budget, not a scenic wander.
 - **The good stuff, pinned.** Landmarks and highly-rated local restaurants found along the
   actual polyline, each with a photo, a description, cuisine and price. Filter to landmarks,
@@ -25,25 +25,18 @@ for what you'll see out the window, with a guide riding along who knows what eve
 
 ## A trip, screen by screen
 
-<!--
-  Screenshots live in docs/screenshots/ — see that folder's README for what each
-  one should show. The tables below already point at the filenames.
--->
-
 |  |  |
 |---|---|
 | <img src="docs/screenshots/01-plan.png" width="270" alt="Plan your trip"> | <img src="docs/screenshots/02-preview.png" width="270" alt="Scenic route preview"> |
-| **1. Plan.** Type a start and destination with address autocomplete (proxied through our own server, so the Maps key never leaves it). Or tap the demo chip for Brickell → Wynwood. | **2. Compare.** Fastest vs. Scenic, with the extra time on the badge and the landmark and food counts underneath. Switching redraws the map from data already in hand — no second request. |
+| **1. Plan.** Type a start and a destination — or tap the demo chip for Brickell → Wynwood. Geocoding is proxied through our own server, so the Maps key never leaves it. | **2. Compare.** Fastest vs. Scenic with the honest cost of the detour on the badge (`+8 min`), then the distance, the landmark and food counts, and a Both / Landmarks / Food filter over the cards. Switching redraws the map from data already in hand — no second request. |
 
 |  |  |
 |---|---|
-| <img src="docs/screenshots/03-poi.png" width="270" alt="Landmark detail card"> | <img src="docs/screenshots/04-3d.png" width="270" alt="3D route fly-through"> |
-| **3. Browse the stops.** Tap a pin or a card for the photo, the description, and — for restaurants — cuisine and price level. The route's top three landmarks get their own pin colors. | **4. See the drive.** The **3D** button plays a fly-through of the whole route, naming each place as the camera passes it. |
+| <img src="docs/screenshots/03-poi.png" width="270" alt="Landmark detail card"> | <img src="docs/screenshots/04-touring.png" width="270" alt="Live narration while touring"> |
+| **3. Browse the stops.** Tap a pin or a card for the photo, the rating and review count, and the description — cuisine and price level for restaurants. Pins cluster as the map zooms out. | **4. Drive.** "Touring" counts the places passed, shows the line being spoken right now, and gives you a pause button plus separate mute chips for landmarks and food. The **Ask Guide** pill opens a chat that answers with the ride as context and cites its sources. |
 
-|  |  |
-|---|---|
-| <img src="docs/screenshots/05-touring.png" width="270" alt="Live narration while touring"> | <img src="docs/screenshots/06-chat.png" width="270" alt="Ask Guide chat"> |
-| **5. Drive.** "Touring" shows the line being spoken right now, what's coming up and how far, a pause button, and separate mute chips for landmarks and food. | **6. Ask.** The Ask Guide pill opens a chat that answers with the ride as context and cites its sources. |
+Not pictured: the **3D** button on the preview sheet plays a three.js fly-through of the whole
+drive before you leave, naming each place as the camera passes it.
 
 ## Layout
 
