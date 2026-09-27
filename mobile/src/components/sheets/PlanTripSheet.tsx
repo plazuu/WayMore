@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { DEMO_TRIP } from '@/config';
+import { CURRENT_LOCATION_LABEL, DEMO_TRIP } from '@/config';
+import { isCurrentLocationLabel } from '@/features/location/currentLocation';
 import { colors, spacing, typography } from '@/theme';
 
 import { AddressAutocompleteField } from '../ui/AddressAutocompleteField';
@@ -52,6 +53,8 @@ export function PlanTripSheet({ initialStart, initialEnd, onSubmit, onCancel }: 
             value={end}
             onChangeText={setEnd}
             placeholder="Where to?"
+            // With the start already filled in (current location), go straight to the destination.
+            autoFocus={!!initialStart && !initialEnd}
             returnKeyType="go"
             onSubmitEditing={submit}
           />
@@ -68,6 +71,9 @@ export function PlanTripSheet({ initialStart, initialEnd, onSubmit, onCancel }: 
       </View>
 
       <View style={styles.suggestions}>
+        {!isCurrentLocationLabel(start) && (
+          <Chip label="Use current location" icon="navigate" onPress={() => setStart(CURRENT_LOCATION_LABEL)} />
+        )}
         <Chip
           label="Demo: Brickell → Wynwood"
           onPress={() => {

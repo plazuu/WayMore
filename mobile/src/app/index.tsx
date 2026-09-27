@@ -16,6 +16,7 @@ import { IconButton } from '@/components/ui/IconButton';
 import { Sheet } from '@/components/ui/Sheet';
 import { useGuideChat } from '@/features/chat/useGuideChat';
 import { useDestinationGuide } from '@/features/destination/useDestinationGuide';
+import { isLocationDenied } from '@/features/location/currentLocation';
 import { usePosition } from '@/features/tour/usePosition';
 import { useTourGuide } from '@/features/tour/useTourGuide';
 import { shortPlaceName } from '@/lib/format';
@@ -143,10 +144,18 @@ export default function MapScreen() {
     if (!destinationGuideOpen && pickedTimer.current) clearTimeout(pickedTimer.current);
   }, [destinationGuideOpen]);
 
+  // "Where to?" starts from the phone's position, like the guide does, unless the
+  // user already typed a start or has turned location access down. The label is
+  // resolved to coordinates only when the route is requested.
+  const openPlannerFromHome = async () => {
+    if (state.start.trim() || (await isLocationDenied())) actions.openPlanner();
+    else actions.openPlanner({ start: CURRENT_LOCATION_LABEL });
+  };
+
   const renderSheet = () => {
     switch (state.phase) {
       case 'idle':
-        return <HomeSheet onWhereTo={() => actions.openPlanner()} onAskGuide={() => setDestinationGuideOpen(true)} />;
+        return <HomeSheet onWhereTo={openPlannerFromHome} onAskGuide={() => setDestinationGuideOpen(true)} />;
       case 'planning':
         return (
           <PlanTripSheet

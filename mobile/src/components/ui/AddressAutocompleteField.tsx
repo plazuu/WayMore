@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 
 import { getAutocomplete } from '@/api/endpoints';
 import { DEFAULT_MAP_REGION } from '@/config';
+import { isCurrentLocationLabel } from '@/features/location/currentLocation';
 import { colors, radii, shadows, spacing, typography } from '@/theme';
 
 import type { AddressSuggestion } from '@/api/types';
@@ -48,7 +49,8 @@ export function AddressAutocompleteField({
       return;
     }
     const query = typeof value === 'string' ? value.trim() : '';
-    if (query.length < MIN_QUERY_LENGTH) {
+    // "Current location" is a placeholder for the GPS fix, not something to search for.
+    if (query.length < MIN_QUERY_LENGTH || isCurrentLocationLabel(query)) {
       setSuggestions([]);
       setLoading(false);
       return;
