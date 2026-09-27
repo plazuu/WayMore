@@ -126,12 +126,15 @@ routeRouter.post("/route", async (req, res) => {
           (poi) => !curatedStops.some((c) => haversineMeters(c, poi) < 250),
         );
         const landmarks = [...curatedStops, ...placesLandmarks].slice(0, MAX_LANDMARKS_PER_ROUTE);
+        // A place can match both type lists (e.g. a landmark market); it stays a
+        // landmark only, since the app keys pins and narration by place id.
+        const landmarkIds = new Set(landmarks.map((poi) => poi.id));
 
         return {
           ...candidate,
           samplePointCount: samplePoints.length,
           landmarks,
-          foodStops: filterFoodStops(foodPool, approach, endGeo),
+          foodStops: filterFoodStops(foodPool, approach, endGeo).filter((poi) => !landmarkIds.has(poi.id)),
           score: scoreCandidate(landmarks),
         };
       }),

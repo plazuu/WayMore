@@ -56,7 +56,7 @@ graph TD
 ```
 
 - **Route pipeline** answers "what's the route, and what's along it?" — one request when the user plans a trip.
-- **Pregenerated narration** is what the app's tour mode uses today: narration for every place up front, then the app decides on the phone when to play each clip as it travels.
+- **Pregenerated narration** is what the app's tour mode uses today: the app asks for places a few at a time as they come within 2 km (nearest first, plus the ones near the start while the route preview is open), then decides on the phone when to play each clip as it travels.
 - **Live guide** is the server-driven alternative: the app sends GPS ticks and the server decides when to narrate, generates the line right then, and drops it if the car has already passed. It adds the chat agent. Both narration paths share one disk cache, so a place's audio is generated once.
 
 ## Zooming in further: request/response shapes

@@ -1,9 +1,8 @@
 import { createContext, useCallback, useContext, useMemo, useReducer, useRef, type ReactNode } from 'react';
 
-import { planRoute, prepareNarrations } from '@/services/tripService';
+import { planRoute, warmStartNarrations } from '@/services/tripService';
 
 import { useSettings, type AppSettings } from './SettingsContext';
-import { getTripPois } from './selectors';
 import { initialTripState, tripReducer, type PoiFilter, type TripState } from './tripReducer';
 
 import type { RouteMode } from '@/api/types';
@@ -41,7 +40,9 @@ export function TripProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'request', start, end });
     try {
       const route = await planRoute(start, end, { ...settingsRef.current, ...overrides });
-      if (requestId === requestIdRef.current) dispatch({ type: 'success', route });
+      if (requestId !== requestIdRef.current) return;
+      dispatch({ type: 'success', route });
+      warmStartNarrations(route);
     } catch (error) {
       if (requestId !== requestIdRef.current) return;
       dispatch({ type: 'failure', error: error instanceof Error ? error.message : 'Something went wrong.' });
@@ -49,12 +50,9 @@ export function TripProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const startTour = useCallback(() => {
-    const { route, mode } = stateRef.current;
-    if (!route) return;
+    if (!stateRef.current.route) return;
+    // Narration is fetched during the tour as places come into range (useTourGuide).
     dispatch({ type: 'startTour' });
-    prepareNarrations(getTripPois(route[mode], 'all'), settingsRef.current).then((narrations) => {
-      if (stateRef.current.phase === 'touring') dispatch({ type: 'narrationsLoaded', narrations });
-    });
   }, []);
 
   const actions = useMemo<TripActions>(

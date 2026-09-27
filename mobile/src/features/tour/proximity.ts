@@ -59,3 +59,22 @@ export function findNextPoi(
   }
   return best;
 }
+
+/**
+ * POIs to fetch narration for next: within `radiusMeters` and ahead of you (or
+ * right beside you), not excluded, nearest first. Places behind you are skipped;
+ * if the road turns back toward one, it is ahead again on a later check.
+ */
+export function findPrefetchPois(
+  position: Position,
+  pois: TripPoi[],
+  exclude: (poi: TripPoi) => boolean,
+  radiusMeters: number,
+): TripPoi[] {
+  return pois
+    .filter((poi) => !exclude(poi))
+    .map((poi) => ({ poi, distance: distanceMeters(position.coords, poiCoords(poi)) }))
+    .filter(({ poi, distance }) => distance <= radiusMeters && (distance <= TOUR.closeRadiusMeters || isAhead(position, poi)))
+    .sort((a, b) => a.distance - b.distance)
+    .map(({ poi }) => poi);
+}
