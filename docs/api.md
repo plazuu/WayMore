@@ -177,10 +177,11 @@ interface Place {
   tagline?: string;
   description?: string;
   facts?: string[];   // the more facts, the better the line
+  rating?: number;    // Google rating 1-5; helps pick which place to narrate
 }
 ```
 
-From `/route`: `landmarks[]` become `kind: "landmark"`, `foodStops[]` become `kind: "restaurant"`; pass `description` through. `side` is ignored (the server computes it). Empty `places` is allowed; at most 200.
+From `/route`: `landmarks[]` become `kind: "landmark"`, `foodStops[]` become `kind: "restaurant"`; pass `description` and `rating` through. When several places are in range on the same tick, the one narrated first is the most important (`backend/src/live/importance.ts`): heritage sights (parks, museums, historic sites, arenas, towers...) always beat chains and generic stops (fast food, gas, pharmacies), whatever their ratings; within a tier, nearer and better rated wins. A missing `rating` counts as 4.0. `side` is ignored (the server computes it). Empty `places` is allowed; at most 200.
 
 ### `POST /tour/tick`
 

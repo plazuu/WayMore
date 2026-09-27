@@ -77,7 +77,8 @@ export function PlanTripSheet({ initialStart, initialEnd, onSubmit, onCancel }: 
         />
       </View>
 
-      <Button label="Find scenic route" icon="navigate" onPress={submit} disabled={!canSubmit} />
+      {/* Neutral: the preview offers both Fastest and Scenic, and the user picks there. */}
+      <Button label="Choose Route" icon="navigate" onPress={submit} disabled={!canSubmit} />
     </View>
   );
 }

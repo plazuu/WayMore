@@ -14,7 +14,9 @@ import {
   FOOD_VISIBLE_FROM_ROUTE_METERS,
   FOOD_VISIBLE_WEIGHT,
   FOOD_FAR_SCORE_FACTOR,
+  FOOD_CHAIN_WEIGHT,
 } from "../config";
+import { isGenericChain } from "../lib/chains";
 
 // Google tags many places with several types (a school can also be
 // "tourist_attraction" or "park"), so a place is dropped if ANY of its
@@ -153,7 +155,8 @@ export function filterFoodStops(pois: Poi[], finalStretch: LatLng[], destination
       const fromDestination = Math.round(distanceToPathMeters(poi, [destination]));
       const visibleFromRoute = fromRoute <= FOOD_VISIBLE_FROM_ROUTE_METERS;
       const closeness = 1 - (1 - FOOD_FAR_SCORE_FACTOR) * Math.min(1, fromDestination / LAST_MILE_RADIUS_METERS);
-      const score = qualityScore(poi) * (visibleFromRoute ? FOOD_VISIBLE_WEIGHT : 1) * closeness;
+      const chainWeight = isGenericChain(poi) ? FOOD_CHAIN_WEIGHT : 1;
+      const score = qualityScore(poi) * (visibleFromRoute ? FOOD_VISIBLE_WEIGHT : 1) * closeness * chainWeight;
       return { poi: { ...poi, distanceFromRouteMeters: fromRoute, distanceFromDestinationMeters: fromDestination, visibleFromRoute }, score };
     })
     .sort((a, b) => b.score - a.score)

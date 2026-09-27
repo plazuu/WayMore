@@ -139,6 +139,36 @@ test("picks the nearest qualifying place first", async () => {
   assert.equal((await h.tick(id, 0, 0)).pending, "near");
 });
 
+test("a heritage landmark wins the trigger slot over a closer 5-star chain", async () => {
+  const h = setup([
+    place("tacobell", 50, 0, { name: "Taco Bell", kind: "restaurant", category: "Fast food restaurant", rating: 5 }),
+    place("tower", 240, 0, { name: "Freedom Tower", category: "Historical landmark", rating: 4.2 }),
+  ]);
+  const id = await h.start();
+  assert.equal((await h.tick(id, 0, 0)).pending, "tower");
+});
+
+test("a local spot beats a chain; a chain still narrates when nothing else qualifies", async () => {
+  const h = setup([
+    place("mcd", 30, 0, { name: "McDonald's", kind: "restaurant", category: "Burger", rating: 4.9 }),
+    place("local", 200, 0, { name: "Versailles", kind: "restaurant", category: "Cuban", rating: 4.4 }),
+  ]);
+  const id = await h.start();
+  assert.equal((await h.tick(id, 0, 0)).pending, "local");
+
+  const alone = setup([place("mcd", 30, 0, { name: "McDonald's", kind: "restaurant", rating: 4.9 })]);
+  const aloneId = await alone.start();
+  assert.equal((await alone.tick(aloneId, 0, 0)).pending, "mcd");
+});
+
+test("rating must be a number when given", async () => {
+  const h = setup([]);
+  await request(h.app)
+    .post("/tour/start")
+    .send({ places: [place("a", 0, 0, { rating: "5" as unknown as number })] })
+    .expect(400);
+});
+
 test("tick returns pending, then the narration exactly once, and never re-triggers", async () => {
   const h = setup([place("a", 200, 100, { name: "Kaseya Center", tagline: "Home of the Miami Heat" })]);
   const id = await h.start();

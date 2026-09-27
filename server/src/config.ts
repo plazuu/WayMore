@@ -58,6 +58,10 @@ export const FOOD_VISIBLE_WEIGHT = 1.5;
 export const FOOD_APPROACH_SAMPLE_METERS = 400;
 export const FOOD_APPROACH_SEARCH_RADIUS_METERS = 200;
 export const FOOD_FAR_SCORE_FACTOR = 0.5;
+// Chains and generic stops (lib/chains.ts) keep this share of their food-stop score,
+// so a 5-star Taco Bell ranks below a 4.4 local spot. They still appear when
+// nothing local is around.
+export const FOOD_CHAIN_WEIGHT = 0.2;
 export const MIN_FOOD_RATING = 4.3;
 export const MIN_FOOD_REVIEWS = 100;
 export const MAX_FOOD_STOPS_PER_ROUTE = 5;
