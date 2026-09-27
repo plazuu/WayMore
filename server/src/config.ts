@@ -62,11 +62,21 @@ export const MIN_FOOD_RATING = 4.3;
 export const MIN_FOOD_REVIEWS = 100;
 export const MAX_FOOD_STOPS_PER_ROUTE = 5;
 
+// Destination guide place search (POST /places/nearby, used by backend/'s
+// "Where to?" guide). Fetch this many by popularity, keep the good ones, then
+// show the nearest. Fewer than the limit left: one retry at double the radius.
+export const PLACES_SEARCH_FETCH_COUNT = 20;
+export const PLACES_SEARCH_DEFAULT_RADIUS_METERS = 3000;
+export const PLACES_SEARCH_MAX_RADIUS_METERS = 20_000;
+export const PLACES_SEARCH_MIN_RATING = 4.0;
+export const PLACES_SEARCH_MIN_REVIEWS = 50;
+export const PLACES_SEARCH_DEFAULT_LIMIT = 5;
+export const PLACES_SEARCH_MAX_LIMIT = 10;
 
 // --- Backend proxy ---
-// /tour, /audio, /dev and /narration are forwarded to the backend/ narration
+// /tour, /audio, /dev, /narration and /guide are forwarded to the backend/
 // service, so the app (and the demo tunnel) needs only this server's URL.
-export const PROXIED_PREFIXES = ["/tour", "/audio", "/dev", "/narration"];
+export const PROXIED_PREFIXES = ["/tour", "/audio", "/dev", "/narration", "/guide"];
 /** Longer than the backend's slowest live call (chat has a 12 s budget). */
 export const PROXY_TIMEOUT_MS = 20_000;
 /**

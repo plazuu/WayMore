@@ -167,7 +167,7 @@ function TypingBubble() {
  * How much of the screen the keyboard covers. On iOS we follow the keyboard's
  * frame exactly; on Android we fall back to the reported keyboard height.
  */
-function useKeyboardHeight(): number {
+export function useKeyboardHeight(): number {
   const [height, setHeight] = useState(0);
   useEffect(() => {
     const update = (next: number, duration: number) => {

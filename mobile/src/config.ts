@@ -26,6 +26,19 @@ export const DEFAULT_MAP_REGION = {
   longitudeDelta: 0.06,
 };
 
+/**
+ * Shown as the trip's start when it is the phone's position (the "Where to?"
+ * guide fills it in). Route search swaps it for the coordinates.
+ */
+export const CURRENT_LOCATION_LABEL = 'Current location';
+
+/** "Where to?" guide. The server rejects longer messages with 400 message_too_long. */
+export const DESTINATION_GUIDE = {
+  maxMessageChars: 500,
+  /** How long the "setting your destination" reply stays up before the planner opens. */
+  confirmDelayMs: 1200,
+};
+
 /** Prefilled in the trip planner so the demo is one tap away. */
 export const DEMO_TRIP = {
   start: 'Brickell City Centre, Miami, FL',
