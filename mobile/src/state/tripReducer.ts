@@ -36,7 +36,8 @@ export const initialTripState: TripState = {
 };
 
 export type TripAction =
-  | { type: 'openPlanner' }
+  /** `start`/`end` prefill the planner (the "Where to?" guide sets both). */
+  | { type: 'openPlanner'; start?: string; end?: string }
   | { type: 'editTrip' }
   | { type: 'request'; start: string; end: string }
   | { type: 'success'; route: RouteResponse }
@@ -51,7 +52,7 @@ export type TripAction =
 export function tripReducer(state: TripState, action: TripAction): TripState {
   switch (action.type) {
     case 'openPlanner':
-      return { ...state, phase: 'planning', error: null };
+      return { ...state, phase: 'planning', error: null, start: action.start ?? state.start, end: action.end ?? state.end };
     case 'editTrip':
       return { ...state, phase: 'planning', route: null, selectedPoiId: null, error: null };
     case 'request':

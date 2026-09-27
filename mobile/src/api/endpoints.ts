@@ -3,6 +3,8 @@ import type {
   AddressSuggestion,
   ChatReply,
   ChatRide,
+  GuideRequest,
+  GuideResponse,
   LatLng,
   Narration,
   NarrationPlace,
@@ -61,4 +63,9 @@ export function postTourChat(sessionId: string, message: string, ride?: ChatRide
 
 export function postTourEnd(sessionId: string) {
   return apiRequest<{ ok: boolean }>('/tour/end', { method: 'POST', body: { sessionId }, timeoutMs: 5_000 });
+}
+
+/** One turn of the "Where to?" guide. Typed text can take a few seconds (the server may ask an LLM). */
+export function postGuideDestination(body: GuideRequest) {
+  return apiRequest<GuideResponse>('/guide/destination', { method: 'POST', body, timeoutMs: 25_000 });
 }

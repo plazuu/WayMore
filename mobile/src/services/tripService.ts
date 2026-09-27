@@ -1,6 +1,8 @@
+import { ApiError } from '@/api/client';
 import { postNarrationPregenerate, postRoute } from '@/api/endpoints';
 import { buildMockRoute } from '@/api/mock/mockRoute';
-import { TOUR } from '@/config';
+import { CURRENT_LOCATION_LABEL, TOUR } from '@/config';
+import { getCurrentLocation } from '@/features/location/currentLocation';
 import { toNarrationPlace } from '@/features/tour/narrationText';
 import { distanceMeters } from '@/lib/geo';
 import { getTripPois } from '@/state/selectors';
@@ -18,12 +20,23 @@ export async function planRoute(start: string, end: string, settings: AppSetting
     await delay(900);
     return buildMockRoute(start, end);
   }
-  return postRoute(start, end, {
+  return postRoute(await resolveCurrentLocation(start), await resolveCurrentLocation(end), {
     sampleIntervalMeters: settings.sampleIntervalMeters,
     searchRadiusMeters: settings.searchRadiusMeters,
     // 0 means automatic: leave it out so the server scales it with the trip.
     maxExtraMinutes: settings.maxExtraMinutes > 0 ? settings.maxExtraMinutes : undefined,
   });
+}
+
+/**
+ * "Current location" becomes the phone's coordinates as "lat,lng", which the
+ * server's geocoder accepts like an address.
+ */
+async function resolveCurrentLocation(place: string): Promise<string> {
+  if (place.trim().toLowerCase() !== CURRENT_LOCATION_LABEL.toLowerCase()) return place;
+  const here = await getCurrentLocation();
+  if (!here) throw new ApiError("Couldn't get your location. Allow location access, or type a starting address.");
+  return `${here.latitude.toFixed(6)},${here.longitude.toFixed(6)}`;
 }
 
 // Voiced narrations received this session, by POI id. The server caches every
