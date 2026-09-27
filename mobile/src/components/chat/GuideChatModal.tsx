@@ -33,7 +33,7 @@ export function GuideChatModal({ visible, chat, onClose }: GuideChatModalProps) 
   const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState('');
   const listRef = useRef<FlatList<ChatMessage>>(null);
-  const { messages, sending, send } = chat;
+  const { messages, sending, send, retry } = chat;
   const keyboardHeight = useKeyboardHeight();
 
   // Newest message at the bottom; keep it in view as replies arrive and when the keyboard opens.
@@ -69,7 +69,9 @@ export function GuideChatModal({ visible, chat, onClose }: GuideChatModalProps) 
             ref={listRef}
             data={messages}
             keyExtractor={(m) => m.id}
-            renderItem={({ item }) => <MessageBubble message={item} />}
+            renderItem={({ item }) => (
+              <MessageBubble message={item} onRetry={sending ? undefined : () => retry(item)} />
+            )}
             contentContainerStyle={styles.list}
             keyboardDismissMode="interactive"
             keyboardShouldPersistTaps="handled"
@@ -111,7 +113,7 @@ export function GuideChatModal({ visible, chat, onClose }: GuideChatModalProps) 
   );
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({ message, onRetry }: { message: ChatMessage; onRetry?: () => void }) {
   const mine = message.role === 'user';
   return (
     <View style={[styles.row, mine ? styles.rowMine : styles.rowTheirs]}>
@@ -130,6 +132,17 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         </Text>
       </View>
       {message.placeName && <Text style={styles.about}>About {message.placeName}</Text>}
+      {message.retryText && onRetry && (
+        <Pressable
+          onPress={onRetry}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Ask the question again"
+          style={({ pressed }) => [styles.retry, pressed && { opacity: 0.6 }]}
+        >
+          <Text style={styles.retryText}>Try again</Text>
+        </Pressable>
+      )}
       {!!message.sources?.length && (
         <View style={styles.sources}>
           {message.sources.map((source) => (
@@ -230,6 +243,8 @@ const styles = StyleSheet.create({
   bubbleText: { fontSize: 16, lineHeight: 21, color: colors.text },
   typing: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   about: { ...typography.caption, fontSize: 12, marginLeft: spacing.xs },
+  retry: { marginLeft: spacing.xs },
+  retryText: { fontSize: 14, fontWeight: '600', color: IOS_BLUE },
   sources: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   sourcePill: {
     flexDirection: 'row',

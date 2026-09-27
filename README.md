@@ -138,7 +138,7 @@ Scan the QR code with the iPhone Camera app. The phone must be on the same Wi-Fi
 - **Address autocomplete**: the start and end fields suggest addresses as you type through the server's `/autocomplete`; with demo data they're plain text fields.
 - **"Where to?" guide**: "Not sure? Ask the guide" on the home sheet, or the "Help me pick" pill over the map, opens a guided chat (chips and place cards) backed by `/guide/destination`. Picking a place fills in the destination, with the phone's current location as the start.
 - **Narration lookahead**: the app fetches narration (line + voice) for the POIs within 2 km ahead, a few at a time, nearest first, instead of the whole route at once; it warms up the ones near the start while the preview is open. Tunables are in `TOUR` in `src/config.ts`.
-- **Ask Guide**: during a tour, the floating pill opens the chat. It starts its own `/tour/start` session with the route's places and sends the car's position, the places reached and the last narrated lines with each question, so the guide knows what has and hasn't been passed.
+- **Ask Guide**: during a tour, the floating pill opens the chat. It starts its own `/tour/start` session with the route's places and sends the car's position, the places reached and the last narrated lines with each question, so the guide knows what has and hasn't been passed. The session opens when the tour starts, narration pauses while the chat is open, and a failed question gets a "Try again" button.
 - **Android**: map tiles are blank in Expo Go because Google rejects Expo Go's bundled Maps key; routes, pins and sheets still work. For real tiles, make a development build (`npx expo run:android`) with `GOOGLE_MAPS_ANDROID_API_KEY` set; see `mobile/app.config.js`.
 
 Typecheck with `npm run typecheck` in `mobile/`.
@@ -202,7 +202,7 @@ mobile/src/
 | Change how the scenic route is picked | `server/src/config.ts` (time budget, landmark/food filters, detours); hand-picked landmarks in `server/data/landmarks.json` |
 | Change the chat welcome line or limits | `CHAT` in `src/config.ts`; UI in `components/chat/GuideChatModal.tsx` |
 | Change the 3D fly-through (camera, colors, speed) | `features/preview/routeScene.ts`; the modal chrome is `components/preview/RoutePreview3D.tsx` |
-| Pause narration while chatting | Call `pause()` / `resume()` from `useTourGuide` |
+| Change how narration yields to the chat | The `pausedForChat` effect in `src/app/index.tsx` (pauses while the chat is open, resumes on close); `pause()` / `resume()` come from `useTourGuide` |
 | Persist settings | `state/SettingsContext.tsx` (currently in-memory) |
 | Add a screen | New file in `src/app/`, then `router.push('/name')` |
 
