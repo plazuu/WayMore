@@ -38,6 +38,10 @@ fake.post("/narration/pregenerate", (req, res) => {
 fake.post("/tour/chat", () => {
   // Never answers: the proxy timeout must kick in.
 });
+fake.post("/guide/destination", (req, res) => {
+  seen.push({ method: req.method, url: req.originalUrl, contentType: req.headers["content-type"], body: req.body });
+  res.json({ conversationId: "c1", stage: "intent", reply: "Hey!", chips: [], places: [], destination: null });
+});
 fake.use("/audio", express.static(audioDir));
 
 let backend: Server;
@@ -156,9 +160,16 @@ test("/narration gets the 120 s timeout, everything else 20 s", () => {
   assert.equal(proxyTimeoutFor("/narrationx"), 20_000);
 });
 
-test("only /tour, /audio, /dev and /narration are proxied; route search stays local", async () => {
+test("forwards /guide (the destination guide)", async () => {
+  const res = await request(createApp()).post("/guide/destination").send({ lat: 25.76, lng: -80.19 }).expect(200);
+  assert.equal(res.body.conversationId, "c1");
+  assert.deepEqual(seen[0].body, { lat: 25.76, lng: -80.19 });
+});
+
+test("only /tour, /audio, /dev, /narration and /guide are proxied; route and place search stay local", async () => {
   const app = createApp();
   await request(app).get("/tourist").expect(404);
+  await request(app).post("/places/nearby").send({}).expect(400);
   const res = await request(app).post("/geocode").send({}).expect(400);
   assert.match(res.body.error, /address/);
   assert.equal(seen.length, 0);

@@ -1,12 +1,13 @@
 # API for the app team
 
-One base URL for everything: `server/` on port 3000. Locally that's `http://<laptop LAN IP>:3000` (or `http://localhost:3000` from the iOS Simulator); for the demo it's the cloudflared tunnel URL. `server/` serves route search itself and forwards `/tour/*`, `/narration/*`, `/audio/*` and `/dev/*` to the internal narration service (`backend/`, port 3001). Never call port 3001 or any Google/OpenAI API from the app: the keys stay on the server.
+One base URL for everything: `server/` on port 3000. Locally that's `http://<laptop LAN IP>:3000` (or `http://localhost:3000` from the iOS Simulator); for the demo it's the cloudflared tunnel URL. `server/` serves route search itself and forwards `/tour/*`, `/narration/*`, `/audio/*`, `/dev/*` and `/guide/*` to the internal narration service (`backend/`, port 3001). Never call port 3001 or any Google/OpenAI API from the app: the keys stay on the server.
 
 - [Errors](#errors)
 - [Route search](#route-search): `GET /health`, `POST /geocode`, `GET /autocomplete`, `POST /route`, `GET /photo`
 - [Live guide](#live-guide): app flow, `POST /tour/start`, `/tour/tick`, `/tour/chat`, `/tour/end`, `GET /dev/demo-path`
 - [Pregenerated narration](#pregenerated-narration): `POST /narration/pregenerate`, `POST /narration` (what the app's tour mode uses today)
 - [Playing narration](#playing-narration)
+- ["Where to?" guide](#where-to-guide): `POST /guide/destination`, full details in [destination-guide-api.md](destination-guide-api.md)
 
 ## Errors
 
@@ -21,7 +22,8 @@ Every error body is `{ "error": "<code or message>", "message"?: "<text>" }`.
 | 400 | `/tour/chat` | `message_too_long` | message over 500 characters |
 | 404 | `/tour/*` | `unknown_session` | session unknown (server restarted, 2 h idle, or ended): call `/tour/start` again |
 | 400 | `/narration/*` | a message | invalid place(s) |
-| 502 | `/tour/*`, `/narration/*`, `/audio/*`, `/dev/*` | `backend_unavailable` | narration service down or no answer in time (20 s; 120 s for `/narration/*`): retry |
+| 400 | `/guide/*` | `location_required`, `message_too_long`, `bad_request` | missing location, message over 500 characters, wrong field types |
+| 502 | `/tour/*`, `/narration/*`, `/audio/*`, `/dev/*`, `/guide/*` | `backend_unavailable` | narration service down or no answer in time (20 s; 120 s for `/narration/*`): retry |
 
 LLM or voice failures never produce a 5xx: you get a fallback line, `audioUrl: null`, or the chat fallback reply.
 
@@ -319,3 +321,9 @@ export const narrationControl = {
   resume() { pausedRef.current = false; playNext(); },
 };
 ```
+
+## "Where to?" guide
+
+`POST /guide/destination` is a short chat that helps an undecided user pick a destination (hungry or sightseeing → type → nearest good places → pick one); the origin is the phone's current location. The server owns the flow and returns the reply, quick-reply chips, place cards and, at the end, the destination. Request/response shapes, example JSON for every step and how to build the screen: [destination-guide-api.md](destination-guide-api.md).
+
+Its place search is `server/`'s `POST /places/nearby` (`{ lat, lng, types?, query?, radiusMeters?, limit?, minRating?, requireOpen?, sortBy? }` → `{ places: PlaceCard[] }`), which the guide calls internally; the app doesn't need it.

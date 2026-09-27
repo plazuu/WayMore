@@ -4,6 +4,9 @@ import { llmConfig, ttsConfig } from "./config";
 import type { ChatLlm } from "./live/chat";
 import { SessionStore, type SessionStoreOptions } from "./live/session";
 import { devRouter } from "./live/demoPath";
+import { DestinationGuide, type GuideOptions } from "./guide/flow";
+import { searchPlacesViaServer } from "./guide/places";
+import { createGuideRouter } from "./routes/guide";
 import { narrationRouter } from "./routes/narration";
 import { audioRouter, createTourRouter, tourErrorHandler } from "./routes/tour";
 
@@ -12,12 +15,15 @@ export interface AppOptions extends SessionStoreOptions {
   store?: SessionStore;
   chatLlm?: ChatLlm;
   chatTimeoutMs?: number;
+  /** "Where to?" guide overrides (tests): place search, interpreter, clock. */
+  guide?: Partial<GuideOptions>;
 }
 
 // Narration service: live guide (/tour/*), chat, pregenerated narration
-// (/narration, used by the current app) and the cached audio (/audio).
+// (/narration, used by the current app), the cached audio (/audio) and the
+// "Where to?" destination guide (/guide).
 // The app reaches it through server/'s proxy; route search lives in server/.
-export function createApp({ store, now, narrate, chatLlm, chatTimeoutMs }: AppOptions = {}) {
+export function createApp({ store, now, narrate, chatLlm, chatTimeoutMs, guide }: AppOptions = {}) {
   const app = express();
   app.use(cors());
   app.use(express.json({ limit: "1mb" }));
@@ -35,6 +41,15 @@ export function createApp({ store, now, narrate, chatLlm, chatTimeoutMs }: AppOp
   app.use(narrationRouter);
   app.use(audioRouter);
   app.use(createTourRouter({ store: store ?? new SessionStore({ now, narrate }), chatLlm, chatTimeoutMs }));
+  app.use(
+    createGuideRouter(
+      new DestinationGuide({
+        searchPlaces: searchPlacesViaServer,
+        debug: process.env.NODE_ENV !== "production",
+        ...guide,
+      }),
+    ),
+  );
   if (process.env.NODE_ENV !== "production") app.use(devRouter);
   app.use("/tour", tourErrorHandler);
 

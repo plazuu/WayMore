@@ -56,6 +56,46 @@ export interface Poi {
   // Relative path on this server, not a direct Google URL — the API key
   // stays server-side, so the mobile app must load photos through /photo.
   photoUrl?: string;
+  /** Detailed searches only (see SearchOptions). */
+  address?: string;
+  /** Detailed searches only; absent when Google has no opening hours for the place. */
+  openNow?: boolean;
+}
+
+const BASE_FIELDS =
+  "places.id,places.displayName,places.location,places.primaryType,places.rating,places.userRatingCount,places.types,places.priceLevel,places.photos,places.editorialSummary";
+// Opening hours put a request in a more expensive Places pricing tier, so only
+// the destination guide asks for these; /route's searches stay on BASE_FIELDS.
+const DETAIL_FIELDS = ",places.formattedAddress,places.currentOpeningHours.openNow";
+
+export interface SearchOptions {
+  /** Adds `address` and `openNow` to each result. */
+  detailed?: boolean;
+}
+
+function fieldMask({ detailed }: SearchOptions): string {
+  return detailed ? BASE_FIELDS + DETAIL_FIELDS : BASE_FIELDS;
+}
+
+function toPoi(place: any): Poi {
+  const types = place.types ?? [];
+  const photoName = place.photos?.[0]?.name;
+  return {
+    id: place.id,
+    name: place.displayName?.text ?? "Unknown",
+    lat: place.location.latitude,
+    lng: place.location.longitude,
+    types,
+    primaryType: place.primaryType,
+    rating: place.rating,
+    userRatingCount: place.userRatingCount,
+    priceLevel: place.priceLevel ? PRICE_LEVEL_DISPLAY[place.priceLevel] : undefined,
+    cuisine: deriveCuisine(types),
+    description: place.editorialSummary?.text,
+    photoUrl: photoName ? `/photo?name=${encodeURIComponent(photoName)}` : undefined,
+    address: place.formattedAddress,
+    openNow: place.currentOpeningHours?.openNow,
+  };
 }
 
 export async function searchNearby(
@@ -64,6 +104,7 @@ export async function searchNearby(
   includedTypes: string[],
   maxResultCount = 10,
   rankPreference: "POPULARITY" | "DISTANCE" = "POPULARITY",
+  options: SearchOptions = {},
 ): Promise<Poi[]> {
   if (!GOOGLE_MAPS_API_KEY) {
     throw new GoogleMapsError("GOOGLE_MAPS_API_KEY is not configured", 500);
@@ -74,8 +115,7 @@ export async function searchNearby(
     headers: {
       "Content-Type": "application/json",
       "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
-      "X-Goog-FieldMask":
-        "places.id,places.displayName,places.location,places.primaryType,places.rating,places.userRatingCount,places.types,places.priceLevel,places.photos,places.editorialSummary",
+      "X-Goog-FieldMask": fieldMask(options),
     },
     body: JSON.stringify({
       includedTypes,
@@ -96,24 +136,51 @@ export async function searchNearby(
     throw new GoogleMapsError(`Places search failed: ${data.error?.message ?? response.statusText}`, 502);
   }
 
-  return (data.places ?? []).map((place: any): Poi => {
-    const types = place.types ?? [];
-    const photoName = place.photos?.[0]?.name;
-    return {
-      id: place.id,
-      name: place.displayName?.text ?? "Unknown",
-      lat: place.location.latitude,
-      lng: place.location.longitude,
-      types,
-      primaryType: place.primaryType,
-      rating: place.rating,
-      userRatingCount: place.userRatingCount,
-      priceLevel: place.priceLevel ? PRICE_LEVEL_DISPLAY[place.priceLevel] : undefined,
-      cuisine: deriveCuisine(types),
-      description: place.editorialSummary?.text,
-      photoUrl: photoName ? `/photo?name=${encodeURIComponent(photoName)}` : undefined,
-    };
+  return (data.places ?? []).map(toPoi);
+}
+
+/**
+ * Places Text Search (New) for free text like "sushi" or a restaurant's name,
+ * biased (not restricted) to a circle, so a well-known match a bit farther out
+ * still shows up.
+ */
+export async function searchText(
+  textQuery: string,
+  center: LatLng,
+  radiusMeters: number,
+  pageSize = 10,
+  options: SearchOptions = {},
+): Promise<Poi[]> {
+  if (!GOOGLE_MAPS_API_KEY) {
+    throw new GoogleMapsError("GOOGLE_MAPS_API_KEY is not configured", 500);
+  }
+
+  const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
+      "X-Goog-FieldMask": fieldMask(options),
+    },
+    body: JSON.stringify({
+      textQuery,
+      pageSize,
+      locationBias: {
+        circle: {
+          center: { latitude: center.lat, longitude: center.lng },
+          radius: radiusMeters,
+        },
+      },
+    }),
   });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new GoogleMapsError(`Places search failed: ${data.error?.message ?? response.statusText}`, 502);
+  }
+
+  return (data.places ?? []).map(toPoi);
 }
 
 export function dedupeById<T extends { id: string }>(items: T[]): T[] {

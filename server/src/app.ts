@@ -3,6 +3,7 @@ import express from "express";
 import { autocompleteRouter } from "./routes/autocomplete";
 import { geocodeRouter } from "./routes/geocode";
 import { photoRouter } from "./routes/photo";
+import { placesRouter } from "./routes/places";
 import { routeRouter } from "./routes/route";
 import { backendHealth, backendProxy } from "./routes/proxy";
 
@@ -12,7 +13,7 @@ export interface AppOptions {
 }
 
 // The app's single base URL. Route search (Google Maps) is served here;
-// /tour, /audio, /dev and /narration are proxied to the backend/ narration service.
+// /tour, /audio, /dev, /narration and /guide are proxied to the backend/ service.
 export function createApp({ proxyTimeoutMs }: AppOptions = {}) {
   const app = express();
   app.use(cors());
@@ -28,6 +29,7 @@ export function createApp({ proxyTimeoutMs }: AppOptions = {}) {
   app.use(autocompleteRouter);
   app.use(routeRouter);
   app.use(photoRouter);
+  app.use(placesRouter);
 
   return app;
 }
