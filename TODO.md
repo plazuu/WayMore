@@ -1,6 +1,6 @@
 # TODO
 
-Task breakdown for the Scenic Route & Tour Guide app. Work each milestone on its own branch (see README), PR into `main` when ready.
+Task breakdown for WayMore, the scenic route & tour guide app. Work each milestone on its own branch (see README), PR into `main` when ready.
 
 Stack assumption: React Native (Expo) + TypeScript for the mobile app, Node/Express backend, Google Maps Platform APIs (Places, Routes, Geocoding, Photos) plus web search for enrichment.
 
