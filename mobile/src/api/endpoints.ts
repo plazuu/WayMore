@@ -1,5 +1,14 @@
 import { apiRequest } from './client';
-import type { AddressSuggestion, LatLng, Narration, NarrationPlace, RouteResponse, RouteTuning } from './types';
+import type {
+  AddressSuggestion,
+  ChatReply,
+  ChatRide,
+  LatLng,
+  Narration,
+  NarrationPlace,
+  RouteResponse,
+  RouteTuning,
+} from './types';
 
 // One function per server endpoint. No app logic here; see src/services for that.
 
@@ -38,4 +47,18 @@ export function postNarrationPregenerate(places: NarrationPlace[]) {
 
 export function postNarration(place: NarrationPlace) {
   return apiRequest<Narration>('/narration', { method: 'POST', body: place, timeoutMs: 30_000 });
+}
+
+/** Starts a live-guide session; the chat uses it for ride context. At most 200 places. */
+export function postTourStart(places: NarrationPlace[]) {
+  return apiRequest<{ sessionId: string }>('/tour/start', { method: 'POST', body: { places }, timeoutMs: 15_000 });
+}
+
+/** Passenger question. 404 `unknown_session` means the session expired: start a new one and retry. */
+export function postTourChat(sessionId: string, message: string, ride?: ChatRide) {
+  return apiRequest<ChatReply>('/tour/chat', { method: 'POST', body: { sessionId, message, ride }, timeoutMs: 25_000 });
+}
+
+export function postTourEnd(sessionId: string) {
+  return apiRequest<{ ok: boolean }>('/tour/end', { method: 'POST', body: { sessionId }, timeoutMs: 5_000 });
 }

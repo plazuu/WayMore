@@ -30,6 +30,8 @@ cp .env.example .env
 cd ../backend
 npm install
 cp .env.example .env
+cd ../mobile
+npm install
 ```
 
 Fill in the keys and save:
@@ -71,9 +73,88 @@ npm run replay:drive -- --real
 
 It prints when each place triggers, the line, how long generation took, whether it arrived before the car passed, and one chat answer with sources and latency. The MP3s are copied to `backend/tmp/replay/` (play one with `afplay`). Add `--fresh` to bypass the audio cache and measure cold generation, or `--question "..."` to ask something else.
 
+## Mobile app
+
+The Expo app (`mobile/`) is laid out like a ride-hailing app: one full-screen map with a bottom sheet whose content changes with the trip phase.
+
+```
+idle ("Where to?") → planning (start/end) → loading → preview (Fastest/Scenic, POIs) → touring (narration + Ask Guide chat)
+                                                   ↘ error (retry / demo data / edit)
+```
+
+### Run it on an iPhone (Expo Go, no Xcode needed)
+
+With `npm run dev:all` running, in a second terminal:
+
+```
+cd mobile
+npx expo start --go
+```
+
+Scan the QR code with the iPhone Camera app. The phone must be on the same Wi-Fi as the laptop (see [Reaching the server from a phone](#reaching-the-server-from-a-phone)). `--go` is needed because the project includes `expo-dev-client`; without it Expo expects a development build. With Xcode installed, `npm run ios` opens the simulator instead.
+
+- **No server or no Google key?** Open Developer settings (gear, top-left) and turn on **Use demo data**, or tap "Use demo data instead" on the error screen. You get a built-in Brickell → Wynwood route in the exact `POST /route` shape. Narration and chat still use the server when it's reachable.
+- **Server URL** defaults to the machine Metro runs on, port 3000. Override it with `EXPO_PUBLIC_API_URL` in `mobile/.env` (see `mobile/.env.example`) or in Developer settings.
+- **Simulate drive** (on by default) moves a fake position along the route, so narration triggers without GPS.
+- **Ask Guide**: during a tour, the floating pill opens the chat. It starts its own `/tour/start` session with the route's places and sends the car's position, the places reached and the last narrated lines with each question, so the guide knows what has and hasn't been passed.
+- **Android**: map tiles are blank in Expo Go because Google rejects Expo Go's bundled Maps key; routes, pins and sheets still work. For real tiles, make a development build (`npx expo run:android`) with `GOOGLE_MAPS_ANDROID_API_KEY` set; see `mobile/app.config.js`.
+
+Typecheck with `npm run typecheck` in `mobile/`.
+
+### Where things live
+
+```
+mobile/src/
+  app/                    Expo Router screens (routes only, keep them thin)
+    _layout.tsx           providers + stack
+    index.tsx             map screen: picks the sheet for the current phase
+    settings.tsx          developer settings (server URL, demo data, sampling, tour sim)
+  api/
+    types.ts              server response shapes (mirror docs/api.md)
+    client.ts             fetch wrapper, base URL, ApiError, resolveServerUrl()
+    endpoints.ts          one function per server endpoint
+    mock/mockRoute.ts     offline demo data
+  services/tripService.ts demo data vs. server switch; all screens go through here
+  state/
+    tripReducer.ts        trip phase state machine
+    TripContext.tsx       actions (findRoute, startTour, ...)
+    SettingsContext.tsx   dev settings + mute toggles (in-memory)
+    useActiveRoute.ts     decoded polyline + POIs for the selected route/filter
+  features/tour/
+    usePosition.ts        GPS (expo-location) or simulated drive
+    proximity.ts          "in range and ahead of you" check, next POI
+    NarrationController.ts  one-at-a-time queue, stale-drop, pause/resume
+    useTourGuide.ts       wires position → proximity → queue
+    narrationText.ts      POI → narration input; local fallback lines
+  features/chat/
+    useGuideChat.ts       passenger chat: own /tour/start session, ride context, 404 retry, /tour/end
+  components/
+    map/                  RouteMap, markers
+    sheets/               one component per phase
+    chat/                 "Ask Guide" floating pill + iOS page-sheet chat modal
+    poi/                  card, detail card, photo, per-kind colors/icons
+    ui/                   Button, Chip, SegmentedControl, Sheet, Icon, ...
+  theme.ts                colors, spacing, type: restyle here
+  config.ts               tunables (map default region, tour radii, chat limits, demo trip)
+```
+
+### Common changes
+
+| Want to... | Touch |
+|---|---|
+| Restyle the app | `src/theme.ts`; POI colors/icons in `components/poi/poiStyle.ts` |
+| Use a real icon set | Replace the body of `components/ui/Icon.tsx` (call sites only pass `name`) |
+| Add address autocomplete | Swap `AddressField` in `components/sheets/PlanTripSheet.tsx`; it must call a new server proxy, never Google directly |
+| Draggable bottom sheet | Replace `components/ui/Sheet.tsx` (e.g. `@gorhom/bottom-sheet`, which needs a dev build) |
+| Change when narration fires | `TOUR` in `src/config.ts`, logic in `features/tour/proximity.ts` |
+| Change the chat welcome line or limits | `CHAT` in `src/config.ts`; UI in `components/chat/GuideChatModal.tsx` |
+| Pause narration while chatting | Call `pause()` / `resume()` from `useTourGuide` |
+| Persist settings | `state/SettingsContext.tsx` (currently in-memory) |
+| Add a screen | New file in `src/app/`, then `router.push('/name')` |
+
 ## Reaching the server from a phone
 
-Same Wi-Fi: use the laptop's LAN IP on port 3000 as the app's base URL, for example `http://192.168.1.20:3000`. Find the IP with:
+Same Wi-Fi: the app finds the server on its own (the laptop Metro runs on, port 3000). To check from the phone, open `http://<laptop-ip>:3000/health` in Safari. If it doesn't load, allow incoming connections for `node` in the Mac's firewall settings. Find the IP with:
 
 ```
 ipconfig getifaddr en0
@@ -92,7 +173,7 @@ It prints a `https://<random>.trycloudflare.com` URL, which changes every time t
 PUBLIC_BASE_URL=https://<random>.trycloudflare.com
 ```
 
-Use the same URL as the app's base URL. `PUBLIC_BASE_URL` is always the server's public URL (port 3000), never the backend's.
+Use the same URL as the app's base URL (`EXPO_PUBLIC_API_URL` in `mobile/.env`, or Developer settings). `PUBLIC_BASE_URL` is always the server's public URL (port 3000), never the backend's.
 
 ## Demo day
 
@@ -144,6 +225,8 @@ cd server
 npm test
 cd ../backend
 npm test
+npm run typecheck
+cd ../mobile
 npm run typecheck
 ```
 
