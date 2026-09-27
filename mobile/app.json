@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Scenic Route",
+    "name": "WayMore",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -34,7 +34,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Scenic Route uses your location to narrate landmarks and food stops as you pass them."
+          "locationWhenInUsePermission": "WayMore uses your location to narrate landmarks and food stops as you pass them."
         }
       ]
     ],
