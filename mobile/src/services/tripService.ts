@@ -62,7 +62,7 @@ export async function fetchNarrations(pois: TripPoi[]): Promise<Narration[]> {
 export function warmStartNarrations(route: RouteResponse): void {
   const start = { latitude: route.start.lat, longitude: route.start.lng };
   const byId = new Map<string, TripPoi>();
-  for (const option of [route.scenic, route.normal]) {
+  for (const option of [route.scenic, route.normal, ...(route.scenicLong ? [route.scenicLong] : [])]) {
     for (const poi of getTripPois(option, 'all')) byId.set(poi.id, poi);
   }
   const nearest = [...byId.values()]

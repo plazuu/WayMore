@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { decodePolyline } from '@/lib/polyline';
 
-import { getTripPois, otherMode } from './selectors';
+import { getTripPois, otherMode, routeOption } from './selectors';
 import { useTrip } from './TripContext';
 
 /** Everything the map and sheets need about the currently selected route option. */
@@ -12,8 +12,8 @@ export function useActiveRoute() {
 
   return useMemo(() => {
     if (!route) return null;
-    const option = route[mode];
-    const alternate = route[otherMode(mode)];
+    const option = routeOption(route, mode);
+    const alternate = routeOption(route, otherMode(mode));
     const allPois = getTripPois(option, 'all');
     return {
       option,

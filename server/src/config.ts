@@ -38,6 +38,8 @@ export const CURATED_SCORE_WEIGHT = 2;
 // with trip length (17 min trip: about 8 min extra; 44 min trip: about 14).
 export const SCENIC_BASE_EXTRA_SECONDS = 300;
 export const SCENIC_EXTRA_FRACTION = 0.2;
+// The long detour option may cost this many times the short detour's budget.
+export const LONG_DETOUR_BUDGET_MULTIPLIER = 2;
 // Upper bound for the maxExtraMinutes request param on POST /route.
 export const MAX_EXTRA_MINUTES_LIMIT = 60;
 // The user's scenic preference (POST /route?preference=...): how much a nature

@@ -22,6 +22,8 @@ interface RoutePreviewSheetProps {
   active: ActiveRoute;
   mode: RouteMode;
   extraTimeSeconds: number;
+  /** Set when the server found a longer detour worth offering as a third option. */
+  extraTimeSecondsLong?: number;
   filter: PoiFilter;
   onChangeMode: (mode: RouteMode) => void;
   onChangeFilter: (filter: PoiFilter) => void;
@@ -29,6 +31,12 @@ interface RoutePreviewSheetProps {
   onStartTour: () => void;
   onClose: () => void;
 }
+
+const ROUTE_TITLES: Record<RouteMode, string> = {
+  normal: 'Fastest route',
+  scenic: 'Short detour',
+  scenicLong: 'Long detour',
+};
 
 const FILTERS: { value: PoiFilter; label: string }[] = [
   { value: 'all', label: 'Both' },
@@ -41,6 +49,7 @@ export function RoutePreviewSheet({
   active,
   mode,
   extraTimeSeconds,
+  extraTimeSecondsLong,
   filter,
   onChangeMode,
   onChangeFilter,
@@ -76,7 +85,10 @@ export function RoutePreviewSheet({
         onChange={onChangeMode}
         segments={[
           { value: 'normal', label: 'Fastest' },
-          { value: 'scenic', label: 'Scenic', badge: formatExtraTime(extraTimeSeconds) },
+          { value: 'scenic', label: 'Short detour', badge: formatExtraTime(extraTimeSeconds) },
+          ...(extraTimeSecondsLong !== undefined
+            ? [{ value: 'scenicLong' as const, label: 'Long detour', badge: formatExtraTime(extraTimeSecondsLong) }]
+            : []),
         ]}
       />
 
@@ -128,7 +140,7 @@ export function RoutePreviewSheet({
         onClose={() => setPreview3D(false)}
         coordinates={coordinates}
         pois={allPois}
-        title={mode === 'scenic' ? 'Scenic route' : 'Fastest route'}
+        title={ROUTE_TITLES[mode]}
         subtitle={`${formatDuration(option.durationSeconds)} · ${formatDistance(option.distanceMeters)} to ${shortPlaceName(destination)}`}
       />
     </View>
