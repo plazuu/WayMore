@@ -28,6 +28,10 @@ export const CURATED_CORRIDOR_METERS = 6000;
 export const MAX_CURATED_TRIALS = 10;
 // The detour search keeps adding waypoints while the value improves, up to this many.
 export const MAX_CURATED_WAYPOINTS = 3;
+// A detour route is dropped if it doubles back over its own path by more than
+// this much beyond the fastest route: that is the route pulling into a parking
+// lot or dead end (or out and back along a causeway) to reach a waypoint.
+export const MAX_DETOUR_RETRACE_METERS = 100;
 // The search's value = curated score minus this per extra minute, so it prefers
 // the shorter of two similarly scenic routes.
 export const DETOUR_TIME_PENALTY_PER_MINUTE = 0.15;

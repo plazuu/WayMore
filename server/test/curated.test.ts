@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { curatedOnRoute, orderAlongRoute, rankMisses, type CuratedLandmark } from "../src/lib/curated";
+import { retraceMeters } from "../src/lib/polyline";
 import { scoreCandidate } from "../src/lib/scoring";
 import { curatedToPoi } from "../src/lib/curated";
 
@@ -48,4 +49,23 @@ test("a curated stop outscores a Places result with the same rating", () => {
   const curated = curatedToPoi(make("c", 0, 0, "historic", 4.5));
   const places = { ...curated, curated: undefined };
   assert.ok(scoreCandidate([curated]) > scoreCandidate([places]));
+});
+
+test("retraceMeters is zero for a route that never doubles back", () => {
+  const straight = Array.from({ length: 40 }, (_, i) => ({ lat: 25.0, lng: -80.1 + i * 0.001 }));
+  assert.equal(retraceMeters(straight), 0);
+});
+
+test("retraceMeters detects going out and back along the same road", () => {
+  // East 2 km, then straight back west 2 km: a dead-end spur.
+  const out = Array.from({ length: 21 }, (_, i) => ({ lat: 25.0, lng: -80.1 + i * 0.001 }));
+  const outAndBack = [...out, ...[...out].reverse().slice(1)];
+  assert.ok(retraceMeters(outAndBack) > 1500, `expected a large retrace, got ${retraceMeters(outAndBack)}`);
+});
+
+test("retraceMeters ignores a loop that returns on a different street", () => {
+  // Out along lat 25.0, back along lat 25.002 (about 220 m away).
+  const out = Array.from({ length: 21 }, (_, i) => ({ lat: 25.0, lng: -80.1 + i * 0.001 }));
+  const back = Array.from({ length: 21 }, (_, i) => ({ lat: 25.002, lng: -80.08 - i * 0.001 }));
+  assert.equal(retraceMeters([...out, ...back]), 0);
 });
