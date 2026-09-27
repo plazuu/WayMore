@@ -7,12 +7,19 @@ WayMore (Shellhack2026) is a mobile app that finds the most scenic route between
 Google Maps gets you there fastest. This gets you there **worth remembering** — a route chosen
 for what you'll see out the window, with a guide riding along who knows what everything is.
 
+- **Don't know where to go? Ask.** "Not sure? Ask the guide" (or the "Help me pick" pill) opens a
+  short chat: hungry or sightseeing, then cuisine or kind of place, then the nearest good places.
+  Pick one and it becomes the destination, starting from where you are. Typing an address instead
+  gets autocomplete suggestions as you go.
 - **Two routes, one tap.** Every search returns both the fastest route and the most scenic one,
   with the honest price of the detour on the toggle (`+8 min`). Scenic means measured: least
-  highway, most waterfront, best-rated landmarks — within a time budget, not a scenic wander.
-- **The good stuff, pinned.** Landmarks and highly-rated local restaurants found along the
-  actual polyline, each with a photo, a description, cuisine and price. Filter to landmarks,
-  food, or both.
+  highway, most waterfront, best-rated landmarks — within a time budget (5 min + 20% of the trip,
+  or your own "max extra time"), not a scenic wander. Besides Google's alternatives, the server
+  tries detours through hand-picked landmarks the fastest route misses.
+- **The good stuff, pinned.** Landmarks found along the actual polyline, and highly-rated local
+  restaurants near the destination (ranked by how visible they are from the final approach), each
+  with a photo, a description, cuisine and price, on Apple Maps-style category pins with the top 3
+  landmarks highlighted. Filter to landmarks, food, or both.
 - **A cinematic 3D fly-through.** Before you leave, watch the drive — the route, the terrain and
   your stops rendered in three.js, so you can see the trip instead of reading an ETA.
 - **A guide who talks as you drive.** The app streams GPS; as you approach a place, the backend
@@ -43,10 +50,10 @@ drive before you leave, naming each place as the camera passes it.
 | Folder | What | Port |
 |---|---|---|
 | `mobile/` | Expo (React Native + TypeScript) app | — |
-| `server/` | The app's **only** base URL: route search over Google Maps (`/route`, `/geocode`, `/photo`), and a proxy for `/tour`, `/narration`, `/audio`, `/dev` to `backend/` | 3000 |
-| `backend/` | Narration service: live guide, chat, pregenerated narration and cached audio, using OpenAI (lines and chat) and Speechify (voice) | 3001 (internal) |
+| `server/` | The app's **only** base URL: route search over Google Maps (`/route`, `/geocode`, `/autocomplete`, `/photo`, `/places/nearby`), and a proxy for `/tour`, `/narration`, `/audio`, `/guide`, `/dev` to `backend/` | 3000 |
+| `backend/` | Narration service: live guide, chat, pregenerated narration and cached audio, using OpenAI (lines and chat) and Speechify (voice); also the "Where to?" guide (`/guide/destination`), whose place search calls back into `server/` | 3001 (internal) |
 
-All API keys stay in `server/.env` and `backend/.env`; the app never sees them. The API for the app team is in [`docs/api.md`](./docs/api.md).
+All API keys stay in `server/.env` and `backend/.env`; the app never sees them. The API for the app team is in [`docs/api.md`](./docs/api.md); the "Where to?" guide has its own page, [`docs/destination-guide-api.md`](./docs/destination-guide-api.md).
 
 ## Setup
 
@@ -66,7 +73,7 @@ npm install
 Fill in the keys and save:
 
 - `server/.env`: `GOOGLE_MAPS_API_KEY` (Places, Routes, Geocoding and Photos enabled).
-- `backend/.env`: `OPENAI_API_KEY` (https://platform.openai.com/api-keys, starts with `sk-`) and `SPEECHIFY_API_KEY` (Speechify API dashboard).
+- `backend/.env`: `OPENAI_API_KEY` (https://platform.openai.com/api-keys, starts with `sk-`) and `SPEECHIFY_API_KEY` (Speechify API dashboard). `SERVER_URL` (default `http://localhost:3000`) is where the "Where to?" guide searches for places.
 
 No OpenAI or Speechify key? The backend runs in **mock mode**: template lines instead of the LLM, no audio (`audioUrl: null`), and an "offline" chat reply. The response shapes are the same, so the app can be built against it.
 
@@ -107,8 +114,8 @@ It prints when each place triggers, the line, how long generation took, whether 
 The Expo app (`mobile/`) is laid out like a ride-hailing app: one full-screen map with a bottom sheet whose content changes with the trip phase.
 
 ```
-idle ("Where to?") → planning (start/end) → loading → preview (Fastest/Scenic, POIs) → touring (narration + Ask Guide chat)
-                                                   ↘ error (retry / demo data / edit)
+idle ("Where to?") → planning (start/end) → loading → preview (Fastest/Scenic, POIs, 3D) → touring (narration + Ask Guide chat)
+   ↘ "Where to?" guide chat ↗                     ↘ error (retry / demo data / edit)
 ```
 
 ### Run it on an iPhone (Expo Go, no Xcode needed)
@@ -120,11 +127,17 @@ cd mobile
 npx expo start --go
 ```
 
+On Windows, or for a slower step-by-step walkthrough, see [`docs/run-on-phone.md`](./docs/run-on-phone.md).
+
 Scan the QR code with the iPhone Camera app. The phone must be on the same Wi-Fi as the laptop (see [Reaching the server from a phone](#reaching-the-server-from-a-phone)). `--go` is needed because the project includes `expo-dev-client`; without it Expo expects a development build. With Xcode installed, `npm run ios` opens the simulator instead.
 
 - **No server or no Google key?** Open Developer settings (gear, top-left) and turn on **Use demo data**, or tap "Use demo data instead" on the error screen. You get a built-in Brickell → Wynwood route in the exact `POST /route` shape. Narration and chat still use the server when it's reachable.
 - **Server URL** defaults to the machine Metro runs on, port 3000. Override it with `EXPO_PUBLIC_API_URL` in `mobile/.env` (see `mobile/.env.example`) or in Developer settings.
 - **Simulate drive** (on by default) moves a fake position along the route, so narration triggers without GPS.
+- **Max extra time** (Developer settings) caps how much longer the scenic route may take; 0 means automatic (5 min + 20% of the trip). Higher values reach waterfront and beach detours.
+- **Address autocomplete**: the start and end fields suggest addresses as you type through the server's `/autocomplete`; with demo data they're plain text fields.
+- **"Where to?" guide**: "Not sure? Ask the guide" on the home sheet, or the "Help me pick" pill over the map, opens a guided chat (chips and place cards) backed by `/guide/destination`. Picking a place fills in the destination, with the phone's current location as the start.
+- **Narration lookahead**: the app fetches narration (line + voice) for the POIs within 2 km ahead, a few at a time, nearest first, instead of the whole route at once; it warms up the ones near the start while the preview is open. Tunables are in `TOUR` in `src/config.ts`.
 - **Ask Guide**: during a tour, the floating pill opens the chat. It starts its own `/tour/start` session with the route's places and sends the car's position, the places reached and the last narrated lines with each question, so the guide knows what has and hasn't been passed.
 - **Android**: map tiles are blank in Expo Go because Google rejects Expo Go's bundled Maps key; routes, pins and sheets still work. For real tiles, make a development build (`npx expo run:android`) with `GOOGLE_MAPS_ANDROID_API_KEY` set; see `mobile/app.config.js`.
 
@@ -151,35 +164,42 @@ mobile/src/
     useActiveRoute.ts     decoded polyline + POIs for the selected route/filter
   features/tour/
     usePosition.ts        GPS (expo-location) or simulated drive
-    proximity.ts          "in range and ahead of you" check, next POI
+    proximity.ts          "in range and ahead of you" check, next POI, POIs to prefetch
     NarrationController.ts  one-at-a-time queue, stale-drop, pause/resume
-    useTourGuide.ts       wires position → proximity → queue
+    useTourGuide.ts       wires position → proximity → queue; narration lookahead
     narrationText.ts      POI → narration input; local fallback lines
   features/chat/
     useGuideChat.ts       passenger chat: own /tour/start session, ride context, 404 retry, /tour/end
+  features/destination/
+    useDestinationGuide.ts  "Where to?" guide conversation state (/guide/destination)
+  features/location/
+    currentLocation.ts    one-shot phone position for the guide and the trip start
   features/preview/
     routeScene.ts         three.js scene for the 3D fly-through (route ribbon, POI markers, camera path)
     glRenderer.ts         expo-gl renderer setup
   components/
-    map/                  RouteMap, markers
+    map/                  RouteMap, category pins (top-3 landmarks highlighted)
     sheets/               one component per phase
-    chat/                 "Ask Guide" floating pill + iOS page-sheet chat modal
-    poi/                  card, detail card, photo, per-kind colors/icons
+    chat/                 floating guide pill (Ask Guide / Help me pick) + iOS page-sheet chat modal
+    destination/          "Where to?" guide chat modal (chips, place cards)
     preview/              RoutePreview3D — the fly-through modal over the map
-    ui/                   Button, Chip, SegmentedControl, Sheet, Icon, ...
+    poi/                  card, detail card, photo, icon; poiCategory.ts maps places to category glyphs/colors
+    ui/                   Button, Chip, SegmentedControl, Sheet, Icon, AddressAutocompleteField, ...
   theme.ts                colors, spacing, type: restyle here
-  config.ts               tunables (map default region, tour radii, chat limits, demo trip)
+  config.ts               tunables (map default region, tour radii and prefetch, chat and guide limits, demo trip)
 ```
 
 ### Common changes
 
 | Want to... | Touch |
 |---|---|
-| Restyle the app | `src/theme.ts`; POI colors/icons in `components/poi/poiStyle.ts` |
-| Use a real icon set | Replace the body of `components/ui/Icon.tsx` (call sites only pass `name`) |
-| Add address autocomplete | Swap `AddressField` in `components/sheets/PlanTripSheet.tsx`; it must call a new server proxy, never Google directly |
+| Restyle the app | `src/theme.ts`; POI kind colors in `components/poi/poiStyle.ts`, category pins in `components/poi/poiCategory.ts` |
+| Use a real icon set for UI icons | Replace the body of `components/ui/Icon.tsx` (call sites only pass `name`); POI pins already use `@expo/vector-icons` via `PoiIcon.tsx` |
+| Change address suggestions | `components/ui/AddressAutocompleteField.tsx`; server side in `server/src/routes/autocomplete.ts` |
+| Change the "Where to?" guide | UI in `components/destination/DestinationGuideModal.tsx`; the flow, replies and categories are server-side in `backend/src/guide/` |
 | Draggable bottom sheet | Replace `components/ui/Sheet.tsx` (e.g. `@gorhom/bottom-sheet`, which needs a dev build) |
-| Change when narration fires | `TOUR` in `src/config.ts`, logic in `features/tour/proximity.ts` |
+| Change when narration fires or how far ahead it's fetched | `TOUR` in `src/config.ts`, logic in `features/tour/proximity.ts` and `useTourGuide.ts` |
+| Change how the scenic route is picked | `server/src/config.ts` (time budget, landmark/food filters, detours); hand-picked landmarks in `server/data/landmarks.json` |
 | Change the chat welcome line or limits | `CHAT` in `src/config.ts`; UI in `components/chat/GuideChatModal.tsx` |
 | Change the 3D fly-through (camera, colors, speed) | `features/preview/routeScene.ts`; the modal chrome is `components/preview/RoutePreview3D.tsx` |
 | Pause narration while chatting | Call `pause()` / `resume()` from `useTourGuide` |
@@ -237,8 +257,9 @@ Sessions are in memory: after a backend restart the app gets `404 unknown_sessio
 | `SPEECHIFY_EMOTION` | `energetic` | Tone; leave empty for neutral |
 | `TTS_CONCURRENCY` | `1` | Simultaneous TTS requests (Speechify's base plan allows 1) |
 | `MOCK_LLM` / `MOCK_TTS` | empty | Set to `1` to force mock mode and save API credits |
+| `SERVER_URL` | `http://localhost:3000` | Where the "Where to?" guide searches for places (`server/`'s `/places/nearby`) |
 
-`server/.env` has `GOOGLE_MAPS_API_KEY` and `BACKEND_URL` (default `http://localhost:3001`). Trigger distances, timing and the chat timeout are in `backend/src/config.ts` (`LIVE_GUIDE`).
+`server/.env` has `GOOGLE_MAPS_API_KEY` and `BACKEND_URL` (default `http://localhost:3001`). Trigger distances, timing and the chat timeout are in `backend/src/config.ts` (`LIVE_GUIDE`); the "Where to?" guide's search radius, result count and conversation lifetime are in `GUIDE` there. Route search tunables (scenic time budget, landmark and restaurant filters, detours) are in `server/src/config.ts`.
 
 Changing the model or a voice setting regenerates each clip the next time it's needed. To clear all cached clips: `rm -rf backend/data/audio_cache`.
 

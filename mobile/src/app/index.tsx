@@ -218,6 +218,16 @@ export default function MapScreen() {
         />
       )}
 
+      {!touring && state.phase !== 'loading' && (
+        <AskGuideButton
+          icon="bot"
+          label="Help me pick"
+          accessibilityLabel="Not sure where to go? Chat with the guide"
+          onPress={() => setDestinationGuideOpen(true)}
+          style={[styles.askGuide, { bottom: sheetHeight + spacing.md }]}
+        />
+      )}
+
       {touring && (
         <View style={[styles.topBarRight, { top: insets.top + spacing.sm }]} pointerEvents="box-none">
           <IconButton
