@@ -10,6 +10,59 @@ export const DEFAULT_SEARCH_RADIUS_METERS = 500;
 export const MIN_SEARCH_RADIUS_METERS = 100;
 export const MAX_SEARCH_RADIUS_METERS = 2000;
 
+// Quality filters applied to POIs per route (see lib/filter.ts). Raise the
+// minimums or lower the caps for fewer, better stops.
+export const MIN_LANDMARK_RATING = 4.3;
+export const MIN_LANDMARK_REVIEWS = 100;
+export const MAX_LANDMARKS_PER_ROUTE = 8;
+// A landmark only counts if you can plausibly see it from the car. Nature
+// (beaches, parks, marinas) reads from farther away, so it gets more slack.
+export const MAX_LANDMARK_DISTANCE_FROM_ROUTE_METERS = 150;
+export const MAX_NATURE_DISTANCE_FROM_ROUTE_METERS = 300;
+// Hand-picked landmarks (data/landmarks.json). One that is missed by the fastest
+// route but within CURATED_CORRIDOR_METERS of it is trialed as a pass-through
+// waypoint; trial routes over the time budget are dropped before the (more
+// expensive) Places search runs on them.
+export const CURATED_CORRIDOR_METERS = 6000;
+// How many top misses to trial a detour route for (each is one cheap Routes call).
+export const MAX_CURATED_TRIALS = 10;
+// The detour search keeps adding waypoints while the value improves, up to this many.
+export const MAX_CURATED_WAYPOINTS = 3;
+// The search's value = curated score minus this per extra minute, so it prefers
+// the shorter of two similarly scenic routes.
+export const DETOUR_TIME_PENALTY_PER_MINUTE = 0.15;
+// A hand-picked stop counts this many times a Places result of the same rating.
+export const CURATED_SCORE_WEIGHT = 2;
+// A scenic route may cost at most this much extra time over the fastest one:
+// a flat allowance plus a fraction of the fastest trip, so the budget scales
+// with trip length (17 min trip: about 8 min extra; 44 min trip: about 14).
+export const SCENIC_BASE_EXTRA_SECONDS = 300;
+export const SCENIC_EXTRA_FRACTION = 0.2;
+// Upper bound for the maxExtraMinutes request param on POST /route.
+export const MAX_EXTRA_MINUTES_LIMIT = 60;
+// Scenic scoring multiplier for nature stops, so the scenic route favors
+// driving by a beach or waterfront.
+export const NATURE_SCORE_WEIGHT = 1.5;
+
+// Restaurants are only suggested near the destination ("last mile"), within
+// this radius of it. Nothing is searched for food along the route.
+export const LAST_MILE_RADIUS_METERS = 1600;
+// Food stops are ranked for the final approach: one within this distance of the
+// last stretch of the route is visible from the car and gets a bonus; closeness
+// to the destination scales the score from 1 (at the destination) down to
+// FOOD_FAR_SCORE_FACTOR (at the edge of the last-mile radius).
+export const FOOD_VISIBLE_FROM_ROUTE_METERS = 100;
+export const FOOD_VISIBLE_WEIGHT = 1.5;
+// Also search along each route's final stretch (a point every N m, small radius)
+// so places right on the approach are found, not just the popular ones nearby.
+export const FOOD_APPROACH_SAMPLE_METERS = 400;
+export const FOOD_APPROACH_SEARCH_RADIUS_METERS = 200;
+export const FOOD_FAR_SCORE_FACTOR = 0.5;
+export const MIN_FOOD_RATING = 4.3;
+export const MIN_FOOD_REVIEWS = 100;
+export const MAX_FOOD_STOPS_PER_ROUTE = 5;
+
+
 // --- Backend proxy ---
 // /tour, /audio, /dev and /narration are forwarded to the backend/ narration
 // service, so the app (and the demo tunnel) needs only this server's URL.

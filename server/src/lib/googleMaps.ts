@@ -49,12 +49,16 @@ export interface AutocompleteSuggestion {
   secondaryText?: string;
 }
 
+/** Suggestions near `bias` rank first; farther matches still show up. 50 km is Google's max. */
+const AUTOCOMPLETE_BIAS_RADIUS_METERS = 50_000;
+
 /** Places Autocomplete (New). `sessionToken` should be the same string for every
  * keystroke of one address search and a fresh one per search, per Google's
  * session-based billing — see mobile's AddressAutocompleteField. */
 export async function autocompletePlaces(
   input: string,
   sessionToken?: string,
+  bias?: LatLng,
 ): Promise<AutocompleteSuggestion[]> {
   if (!GOOGLE_MAPS_API_KEY) {
     throw new GoogleMapsError("GOOGLE_MAPS_API_KEY is not configured", 500);
@@ -66,7 +70,20 @@ export async function autocompletePlaces(
       "Content-Type": "application/json",
       "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
     },
-    body: JSON.stringify({ input, ...(sessionToken ? { sessionToken } : {}) }),
+    body: JSON.stringify({
+      input,
+      ...(sessionToken ? { sessionToken } : {}),
+      ...(bias
+        ? {
+            locationBias: {
+              circle: {
+                center: { latitude: bias.lat, longitude: bias.lng },
+                radius: AUTOCOMPLETE_BIAS_RADIUS_METERS,
+              },
+            },
+          }
+        : {}),
+    }),
   });
 
   const data = await response.json();
@@ -102,7 +119,13 @@ export interface RouteCandidate {
   encodedPolyline: string;
 }
 
-export async function computeRoutes(origin: LatLng, destination: LatLng): Promise<RouteCandidate[]> {
+// `via` are pass-through waypoints (no stop). Google does not allow alternative
+// routes together with waypoints, so a via request returns a single route.
+export async function computeRoutes(
+  origin: LatLng,
+  destination: LatLng,
+  via: LatLng[] = [],
+): Promise<RouteCandidate[]> {
   if (!GOOGLE_MAPS_API_KEY) {
     throw new GoogleMapsError("GOOGLE_MAPS_API_KEY is not configured", 500);
   }
@@ -119,7 +142,11 @@ export async function computeRoutes(origin: LatLng, destination: LatLng): Promis
       destination: { location: { latLng: { latitude: destination.lat, longitude: destination.lng } } },
       travelMode: "DRIVE",
       routingPreference: "TRAFFIC_AWARE",
-      computeAlternativeRoutes: true,
+      polylineQuality: "HIGH_QUALITY",
+      computeAlternativeRoutes: via.length === 0,
+      ...(via.length > 0
+        ? { intermediates: via.map((p) => ({ location: { latLng: { latitude: p.lat, longitude: p.lng } }, via: true })) }
+        : {}),
     }),
   });
 

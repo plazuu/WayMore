@@ -54,18 +54,32 @@ export function useGuideChat({ active, pois, sessionId: externalSessionId, getRi
   const sessionRef = useRef<string | null>(null);
   // Bumped when the tour ends so late replies from the old trip are dropped.
   const generationRef = useRef(0);
+  const wasActiveRef = useRef(false);
 
   useEffect(() => {
-    if (!active) return;
-    return () => {
+    if (!active) {
+      if (!wasActiveRef.current) return;
+      wasActiveRef.current = false;
       generationRef.current++;
       const id = sessionRef.current;
       sessionRef.current = null;
       if (id) postTourEnd(id).catch(() => {});
       setMessages([welcomeMessage()]);
       setSending(false);
-    };
+      return;
+    }
+
+    wasActiveRef.current = true;
   }, [active]);
+
+  useEffect(() => {
+    return () => {
+      generationRef.current++;
+      const id = sessionRef.current;
+      sessionRef.current = null;
+      if (id) postTourEnd(id).catch(() => {});
+    };
+  }, []);
 
   const startSession = useCallback(async () => {
     const places = poisRef.current.slice(0, CHAT.maxSessionPlaces).map(toNarrationPlace);

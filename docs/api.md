@@ -42,11 +42,13 @@ LLM or voice failures never produce a 5xx: you get a fallback line, `audioUrl: n
 ```
 → `{ "lat": 37.42, "lng": -122.08, "formattedAddress": "1600 Amphitheatre Pkwy, ..." }`
 
-### `GET /autocomplete?input=<partial text>&sessionToken=<opaque string>`
+### `GET /autocomplete?input=<partial text>&sessionToken=<opaque string>&lat=<number>&lng=<number>`
 
 Places Autocomplete (New) proxy, so the app gets the same fill-in-address-as-you-type suggestions a normal map app has, without the Google key ever reaching the client.
 
 `sessionToken` is optional but should be the same string for every keystroke of one address search and a fresh one per search — Google bills per session when it's reused consistently.
+
+`lat`/`lng` are optional: when both are valid, places within about 50 km of that point rank first (farther matches still appear). The app sends its default map center (Miami).
 
 ```json
 {
@@ -76,7 +78,16 @@ Optional query params (clamped server-side): `sampleIntervalMeters` (default 120
 }
 ```
 
-`normal` is the fastest candidate, `scenic` the one with the highest landmark score (sum of landmark ratings); they can be the same route. `extraTimeSeconds` = scenic minus normal duration (can be 0). One call serves the normal/scenic toggle.
+`normal` is the fastest candidate; they can be the same route. `scenic` is chosen as follows (`server/src/routes/route.ts`, `server/src/lib/detours.ts`, `server/src/lib/scoring.ts`; tunables in `server/src/config.ts`):
+
+1. Besides Google's alternatives, the server cross-references a hand-picked landmark list (`server/data/landmarks.json`) against the fastest route. Great ones it misses but that are close get a trial detour route through a pass-through waypoint, and the search keeps adding waypoints (up to 3) while the value improves.
+2. Only candidates within the extra-time budget are eligible: the request's `maxExtraMinutes` if given, otherwise 5 minutes plus 20% of the fastest route.
+3. Landmarks must be visible from the road (within 150 m of the route, 300 m for nature), have a genuinely outdoor type (no schools, indoor attractions, restaurants, clubs) and a rating of at least 4.3 with 100+ reviews. At most 8 per route.
+4. The highest score wins: the sum of landmark ratings, with hand-picked stops counting 2x and nature stops 1.5x.
+5. `foodStops` never affect the choice. They are only suggested for the last mile: one search around the destination plus small searches along the route's final stretch, ranked by quality, closeness to the destination and a bonus when visible from the road (`visibleFromRoute`).
+
+Optional query param: `maxExtraMinutes` (0-60) overrides the time budget.
+ `extraTimeSeconds` = scenic minus normal duration (can be 0). One call serves the normal/scenic toggle.
 
 ```ts
 interface RouteOption {
@@ -84,7 +95,7 @@ interface RouteOption {
   durationSeconds: number;
   polyline: string;          // Google encoded polyline; decode client-side
   samplePointCount: number;  // debug
-  score: number;             // debug
+  score: number;             // debug: scenic score
   landmarks: Poi[];
   foodStops: Poi[];
 }
@@ -95,7 +106,10 @@ interface Poi {
   lat: number;
   lng: number;
   types: string[];           // raw Google Places types
-  rating?: number;           // foodStops are pre-filtered to >= 4.0
+  rating?: number;           // foodStops are pre-filtered (rating >= 4.3, >= 100 reviews) and limited to the last mile
+  distanceFromDestinationMeters?: number; // foodStops only: within ~1.6 km of the destination
+  visibleFromRoute?: boolean; // foodStops only: within ~100 m of the route's final stretch, so seen from the car
+  distanceFromRouteMeters?: number; // landmarks: from the route; foodStops: from the final stretch
   userRatingCount?: number;
   priceLevel?: string;       // "$".."$$$$" or "Free"; foodStops only
   cuisine?: string;          // foodStops only

@@ -4,7 +4,7 @@ A mobile app that finds the most scenic route between two points, surfaces landm
 
 ## What it does
 
-1. **Route**: the user enters a start and end address. The server fetches candidate routes and returns both the fastest and the most scenic one (the one passing the best-rated landmarks), with landmarks and food stops along each.
+1. **Route**: the user enters a start and end address. The server fetches candidate routes and returns both the fastest and the most scenic one (the one passing the best-rated landmarks), with landmarks along each; restaurants are suggested only near the destination (last mile).
 2. **Map**: the app shows the route with landmark and restaurant pins, each with a photo and a short description.
 3. **Live tour guide**: during the trip the app streams its GPS position. As the car approaches a place, the server writes a line ("On your left is the Freedom Tower...") and voices it; the app plays it.
 4. **Chat**: a passenger types a question ("How long has the Heat played there?") and the guide texts back, knowing where the car is and what it just narrated, with web sources.
