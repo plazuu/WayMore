@@ -119,3 +119,49 @@ export function lastStretch(path: LatLng[], meters: number): LatLng[] {
   }
   return tail.reverse();
 }
+
+const bearingDegrees = (a: LatLng, b: LatLng): number => {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const y = Math.sin(toRad(b.lng - a.lng)) * Math.cos(toRad(b.lat));
+  const x =
+    Math.cos(toRad(a.lat)) * Math.sin(toRad(b.lat)) -
+    Math.sin(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.cos(toRad(b.lng - a.lng));
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+};
+
+const angleBetween = (a: number, b: number): number => {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+};
+
+// Meters of the route that double back over ground it already covered: driving
+// into a parking lot or dead end and turning around, or an out-and-back spur to
+// reach a waypoint. Samples the path every `stepMeters` and counts samples that
+// lie within `toleranceMeters` of earlier ground while heading the opposite way.
+export function retraceMeters(path: LatLng[], stepMeters = 20, toleranceMeters = 15): number {
+  const samples = sampleAlongPath(path, stepMeters);
+  if (samples.length < 8) return 0;
+  const cell = (p: LatLng) => `${Math.round(p.lat / 0.0002)},${Math.round(p.lng / 0.0002)}`; // ~22 m cells
+  const seen = new Map<string, number[]>();
+  const headings = samples.map((p, i) => (i + 1 < samples.length ? bearingDegrees(p, samples[i + 1]) : bearingDegrees(samples[i - 1], p)));
+  let retraced = 0;
+  samples.forEach((p, i) => {
+    const [cy, cx] = cell(p).split(",").map(Number);
+    let doubled = false;
+    for (let dy = -1; dy <= 1 && !doubled; dy++) {
+      for (let dx = -1; dx <= 1 && !doubled; dx++) {
+        for (const j of seen.get(`${cy + dy},${cx + dx}`) ?? []) {
+          if (i - j < 4) continue; // adjacent samples aren't "earlier ground"
+          if (haversineMeters(p, samples[j]) <= toleranceMeters && angleBetween(headings[i], headings[j]) > 120) {
+            doubled = true;
+            break;
+          }
+        }
+      }
+    }
+    if (doubled) retraced += stepMeters;
+    const key = cell(p);
+    seen.set(key, [...(seen.get(key) ?? []), i]);
+  });
+  return retraced;
+}

@@ -1,13 +1,14 @@
 import { Router } from "express";
 import { geocodeAddress, computeRoutes, GoogleMapsError, type RouteCandidate } from "../lib/googleMaps";
 import { decodePolyline, sampleAlongPath, haversineMeters, lastStretch } from "../lib/polyline";
-import { searchNearby, dedupeById, LANDMARK_TYPES, FOOD_TYPES, type Poi } from "../lib/places";
-import { scoreCandidate } from "../lib/scoring";
+import { searchNearby, dedupeById, landmarkTypesFor, FOOD_TYPES, type Poi } from "../lib/places";
+import { landmarkValue, scoreCandidate } from "../lib/scoring";
 import { filterLandmarks, filterFoodStops } from "./filter";
 import { byTierRank, tierOf } from "../lib/tiers";
 import { curatedOnRoute, withCuratedPhotos } from "../lib/curated";
 import { findScenicDetours } from "../lib/detours";
 import { scenicBudgetSeconds } from "../lib/budget";
+import { pickRoutes } from "../lib/picks";
 import {
   DEFAULT_SAMPLE_INTERVAL_METERS,
   MIN_SAMPLE_INTERVAL_METERS,
@@ -16,6 +17,10 @@ import {
   MIN_SEARCH_RADIUS_METERS,
   MAX_SEARCH_RADIUS_METERS,
   MAX_LANDMARKS_PER_ROUTE,
+  LONG_DETOUR_BUDGET_MULTIPLIER,
+  DEFAULT_SCENIC_PREFERENCE,
+  SCENIC_PREFERENCES,
+  type ScenicPreference,
   LAST_MILE_RADIUS_METERS,
   FOOD_APPROACH_SAMPLE_METERS,
   FOOD_APPROACH_SEARCH_RADIUS_METERS,
@@ -23,6 +28,12 @@ import {
 } from "../config";
 
 export const routeRouter = Router();
+
+function parsePreference(value: unknown): ScenicPreference {
+  return typeof value === "string" && (SCENIC_PREFERENCES as string[]).includes(value)
+    ? (value as ScenicPreference)
+    : DEFAULT_SCENIC_PREFERENCE;
+}
 
 function parseNumberParam(value: unknown, fallback: number, min: number, max: number): number {
   if (typeof value !== "string") return fallback;
@@ -81,6 +92,7 @@ routeRouter.post("/route", async (req, res) => {
   );
 
   // How much longer the user will accept for a more scenic drive, in minutes.
+  const preference = parsePreference(req.query.preference);
   const maxExtraMinutes =
     typeof req.query.maxExtraMinutes === "string"
       ? parseNumberParam(req.query.maxExtraMinutes, 0, 0, MAX_EXTRA_MINUTES_LIMIT)
@@ -92,11 +104,22 @@ routeRouter.post("/route", async (req, res) => {
     const candidates: Array<RouteCandidate & { viaIds?: string[] }> = [...baseCandidates];
 
     const fastestBase = baseCandidates.reduce((a, c) => (c.durationSeconds < a.durationSeconds ? c : a));
-    const allowedExtra = scenicBudgetSeconds(fastestBase.durationSeconds, maxExtraMinutes);
+    const shortBudget = scenicBudgetSeconds(fastestBase.durationSeconds, maxExtraMinutes);
+    const longBudget = shortBudget * LONG_DETOUR_BUDGET_MULTIPLIER;
 
     // Cross-reference the hand-picked landmark list against the fastest route and
     // search for a detour through great ones it misses (see lib/detours.ts).
-    candidates.push(...(await findScenicDetours(startGeo, endGeo, fastestBase, allowedExtra)));
+    const [shortDetours, longDetours] = await Promise.all([
+      findScenicDetours(startGeo, endGeo, fastestBase, shortBudget, preference),
+      findScenicDetours(startGeo, endGeo, fastestBase, longBudget, preference),
+    ]);
+    const known = new Set(candidates.map((c) => c.encodedPolyline));
+    for (const detour of [...shortDetours, ...longDetours]) {
+      if (!known.has(detour.encodedPolyline)) {
+        known.add(detour.encodedPolyline);
+        candidates.push(detour);
+      }
+    }
 
     // Restaurants only matter for the last mile. One search around the
     // destination is shared by every candidate (they all end there); each route
@@ -110,7 +133,7 @@ routeRouter.post("/route", async (req, res) => {
         const samplePoints = sampleAlongPath(points, sampleIntervalMeters);
 
         const landmarkResults = await Promise.all(
-          samplePoints.map((pt) => searchNearby(pt, searchRadiusMeters, LANDMARK_TYPES)),
+          samplePoints.map((pt) => searchNearby(pt, searchRadiusMeters, landmarkTypesFor(preference))),
         );
 
         const approach = lastStretch(points, LAST_MILE_RADIUS_METERS);
@@ -123,12 +146,16 @@ routeRouter.post("/route", async (req, res) => {
 
         const curatedStops = await withCuratedPhotos(curatedOnRoute(points, candidate.viaIds));
         // Drop Places results that duplicate a curated stop (within ~250 m).
-        const placesLandmarks = filterLandmarks(dedupeById(landmarkResults.flat()), points).filter(
+        const placesLandmarks = filterLandmarks(dedupeById(landmarkResults.flat()), points, preference).filter(
           (poi) => !curatedStops.some((c) => haversineMeters(c, poi) < 250),
         );
-        // Which landmarks make the cut is unchanged (hand-picked first, then quality);
+        // Which landmarks make the cut is ranked by preference-weighted value first;
         // the order the app shows them in is by tier, so heritage sights lead.
-        const landmarks = byTierRank([...curatedStops, ...placesLandmarks].slice(0, MAX_LANDMARKS_PER_ROUTE));
+        const landmarks = byTierRank(
+          [...curatedStops, ...placesLandmarks]
+            .sort((a, b) => landmarkValue(b, preference) - landmarkValue(a, preference))
+            .slice(0, MAX_LANDMARKS_PER_ROUTE),
+        );
         // A place can match both type lists (e.g. a landmark market); it stays a
         // landmark only, since the app keys pins and narration by place id.
         const landmarkIds = new Set(landmarks.map((poi) => poi.id));
@@ -141,23 +168,13 @@ routeRouter.post("/route", async (req, res) => {
           foodStops: filterFoodStops(foodPool, approach, endGeo)
             .filter((poi) => !landmarkIds.has(poi.id))
             .map((poi) => ({ ...poi, tier: tierOf(poi) })),
-          score: scoreCandidate(landmarks),
+          score: scoreCandidate(landmarks, preference),
         };
       }),
     );
 
-    const normal = enrichedCandidates.reduce((fastest, c) =>
-      c.durationSeconds < fastest.durationSeconds ? c : fastest,
-    );
-    // Only routes within the time budget can be "scenic"; otherwise scenic = normal.
-    const withinBudget = enrichedCandidates.filter(
-      (c) => c.durationSeconds - normal.durationSeconds <= allowedExtra,
-    );
-    const scenic = withinBudget.reduce((best, c) => {
-      if (c.score > best.score) return c;
-      if (c.score === best.score && c.durationSeconds < best.durationSeconds) return c;
-      return best;
-    });
+    // Fastest, short detour (within the normal budget) and, when there is one, a long detour.
+    const { normal, scenic, scenicLong } = pickRoutes(enrichedCandidates, shortBudget, longBudget);
 
     res.json({
       start: startGeo,
@@ -165,6 +182,13 @@ routeRouter.post("/route", async (req, res) => {
       normal: toRouteResponse(normal),
       scenic: toRouteResponse(scenic),
       extraTimeSeconds: scenic.durationSeconds - normal.durationSeconds,
+      ...(scenicLong
+        ? {
+            scenicLong: toRouteResponse(scenicLong),
+            extraTimeSecondsLong: scenicLong.durationSeconds - normal.durationSeconds,
+          }
+        : {}),
+      preference,
     });
   } catch (err) {
     if (err instanceof GoogleMapsError) {

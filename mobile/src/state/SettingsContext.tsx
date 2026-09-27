@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
 import { setApiBaseUrl } from '@/api/client';
+import type { ScenicPreference } from '@/api/types';
 import { defaultApiBaseUrl, TOUR } from '@/config';
 
 export interface AppSettings {
@@ -13,6 +14,8 @@ export interface AppSettings {
   searchRadiusMeters: number;
   /** Passed to POST /route. Extra minutes the scenic route may cost over the fastest one. 0 = automatic (5 min + 20% of the trip). */
   maxExtraMinutes: number;
+  /** Passed to POST /route. Whether the scenic route favors city landmarks, nature and waterfront, or a mix. */
+  scenicPreference: ScenicPreference;
   /** Drive a fake position along the route instead of using GPS. */
   simulateDrive: boolean;
   simulatedSpeedMps: number;
@@ -32,6 +35,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   sampleIntervalMeters: 1200,
   searchRadiusMeters: 500,
   maxExtraMinutes: 0,
+  scenicPreference: 'balanced',
   simulateDrive: true,
   simulatedSpeedMps: 20,
   triggerRadiusMeters: TOUR.triggerRadiusMeters,

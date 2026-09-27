@@ -1,6 +1,6 @@
 import { LANDMARK_ONLY_TYPES, NATURE_TYPES, type Poi } from "../lib/places";
 import { distanceToPathMeters, type LatLng } from "../lib/polyline";
-import { isNature } from "../lib/scoring";
+import { isNature, preferenceWeight } from "../lib/scoring";
 import {
   MAX_LANDMARK_DISTANCE_FROM_ROUTE_METERS,
   MAX_NATURE_DISTANCE_FROM_ROUTE_METERS,
@@ -14,6 +14,7 @@ import {
   FOOD_VISIBLE_FROM_ROUTE_METERS,
   FOOD_VISIBLE_WEIGHT,
   FOOD_FAR_SCORE_FACTOR,
+  type ScenicPreference,
   FOOD_CHAIN_WEIGHT,
 } from "../config";
 import { isGenericChain } from "../lib/chains";
@@ -122,16 +123,17 @@ function filterPois(
   minRating: number,
   minReviews: number,
   maxCount: number,
+  weight: (poi: Poi) => number = () => 1,
 ): Poi[] {
   return pois
     .filter((poi) => passesQuality(poi, minRating, minReviews))
-    .sort((a, b) => qualityScore(b) - qualityScore(a))
+    .sort((a, b) => qualityScore(b) * weight(b) - qualityScore(a) * weight(a))
     .slice(0, maxCount);
 }
 
 // `route` is the decoded polyline: a landmark must be close enough to the road
 // to be seen from the car (nature gets a wider allowance).
-export function filterLandmarks(pois: Poi[], route: LatLng[]): Poi[] {
+export function filterLandmarks(pois: Poi[], route: LatLng[], preference?: ScenicPreference): Poi[] {
   const visible = pois
     .filter((poi) => !isFoodOrDrink(poi) && !isInteriorOnly(poi) && hasOutdoorAppeal(poi))
     .map((poi) => ({ ...poi, distanceFromRouteMeters: Math.round(distanceToPathMeters(poi, route)) }))
@@ -140,7 +142,11 @@ export function filterLandmarks(pois: Poi[], route: LatLng[]): Poi[] {
         poi.distanceFromRouteMeters <=
         (isNature(poi) ? MAX_NATURE_DISTANCE_FROM_ROUTE_METERS : MAX_LANDMARK_DISTANCE_FROM_ROUTE_METERS),
     );
-  return filterPois(visible, MIN_LANDMARK_RATING, MIN_LANDMARK_REVIEWS, MAX_LANDMARKS_PER_ROUTE);
+  // Ranked by the user's preference before the cap, so a nature lover's top 8
+  // are mostly nature and a city lover's mostly landmarks.
+  return filterPois(visible, MIN_LANDMARK_RATING, MIN_LANDMARK_REVIEWS, MAX_LANDMARKS_PER_ROUTE, (poi) =>
+    preferenceWeight(poi, preference),
+  );
 }
 
 // Restaurants only matter on the final approach. `finalStretch` is the last

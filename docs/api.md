@@ -80,7 +80,7 @@ Optional query params (clamped server-side): `sampleIntervalMeters` (default 120
 }
 ```
 
-`normal` is the fastest candidate; they can be the same route. `scenic` is chosen as follows (`server/src/routes/route.ts`, `server/src/lib/detours.ts`, `server/src/lib/scoring.ts`; tunables in `server/src/config.ts`):
+`normal` is the fastest candidate. `scenic` is the **short detour** and `scenicLong` (optional) the **long detour**; the app shows them as Fastest / Short detour / Long detour. `normal` and `scenic` can be the same route. `scenicLong` is present only when a different, longer route within double the extra-time budget scores better than `scenic`, and `extraTimeSecondsLong` is its extra time. `scenic` is chosen as follows (`server/src/routes/route.ts`, `server/src/lib/detours.ts`, `server/src/lib/scoring.ts`; tunables in `server/src/config.ts`):
 
 1. Besides Google's alternatives, the server cross-references a hand-picked landmark list (`server/data/landmarks.json`) against the fastest route. Great ones it misses but that are close get a trial detour route through a pass-through waypoint, and the search keeps adding waypoints (up to 3) while the value improves.
 2. Only candidates within the extra-time budget are eligible: the request's `maxExtraMinutes` if given, otherwise 5 minutes plus 20% of the fastest route.
@@ -88,7 +88,9 @@ Optional query params (clamped server-side): `sampleIntervalMeters` (default 120
 4. The highest score wins: the sum of landmark ratings, with hand-picked stops counting 2x and nature stops 1.5x.
 5. `foodStops` never affect the choice. They are only suggested for the last mile: one search around the destination plus small searches along the route's final stretch, ranked by quality, closeness to the destination and a bonus when visible from the road (`visibleFromRoute`).
 
-Optional query param: `maxExtraMinutes` (0-60) overrides the time budget.
+Optional query params:
+- `maxExtraMinutes` (0-60) overrides the short detour's time budget (the long detour gets double).
+- `preference` (`city` | `balanced` | `nature`, default `balanced`) sets what the scenic route favors. It scales landmark scores (nature stops for `nature`, landmarks and architecture for `city`), orders the landmark list before the cap, chooses which detours are tried, and for `city`/`nature` searches only that kind of place. The chosen value is echoed as `preference` in the response.
  `extraTimeSeconds` = scenic minus normal duration (can be 0). One call serves the normal/scenic toggle.
 
 ```ts

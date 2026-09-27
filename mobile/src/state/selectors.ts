@@ -1,6 +1,6 @@
 import type { PoiFilter } from './tripReducer';
 
-import type { Poi, RouteMode, RouteOption, TopRank, TripPoi } from '@/api/types';
+import type { Poi, RouteMode, RouteOption, RouteResponse, TopRank, TripPoi } from '@/api/types';
 
 /** Reviews a rating needs before it outweighs the typical-landmark prior below. */
 const RATING_CONFIDENCE_REVIEWS = 200;
@@ -67,4 +67,8 @@ export function getTripPois(option: RouteOption, filter: PoiFilter): TripPoi[] {
   return [...landmarks, ...food];
 }
 
-export const otherMode = (mode: RouteMode): RouteMode => (mode === 'scenic' ? 'normal' : 'scenic');
+/** The route option for a mode; a missing long detour falls back to the short one. */
+export const routeOption = (route: RouteResponse, mode: RouteMode): RouteOption => route[mode] ?? route.scenic;
+
+/** The route drawn faintly behind the selected one: the fastest, or for the fastest itself, the short detour. */
+export const otherMode = (mode: RouteMode): RouteMode => (mode === 'normal' ? 'scenic' : 'normal');

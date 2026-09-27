@@ -1,11 +1,14 @@
 import { computeRoutes, GoogleMapsError, type LatLng, type RouteCandidate } from "./googleMaps";
 import { curatedOnRoute, orderAlongRoute, rankMisses, type CuratedLandmark } from "./curated";
-import { decodePolyline } from "./polyline";
+import { decodePolyline, retraceMeters } from "./polyline";
 import { scoreCandidate } from "./scoring";
 import {
+  DEFAULT_SCENIC_PREFERENCE,
   DETOUR_TIME_PENALTY_PER_MINUTE,
   MAX_CURATED_TRIALS,
   MAX_CURATED_WAYPOINTS,
+  MAX_DETOUR_RETRACE_METERS,
+  type ScenicPreference,
 } from "../config";
 
 export type DetourCandidate = RouteCandidate & { viaIds: string[] };
@@ -28,16 +31,18 @@ export async function findScenicDetours(
   end: LatLng,
   fastest: RouteCandidate,
   budgetSeconds: number,
+  preference: ScenicPreference = DEFAULT_SCENIC_PREFERENCE,
 ): Promise<DetourCandidate[]> {
   const basePath = decodePolyline(fastest.encodedPolyline);
-  const misses = rankMisses(basePath, MAX_CURATED_TRIALS);
+  const misses = rankMisses(basePath, MAX_CURATED_TRIALS, undefined, preference);
   if (misses.length === 0) return [];
 
   const value = (path: LatLng[], viaIds: string[], durationSeconds: number) => {
     const extraMinutes = Math.max(0, durationSeconds - fastest.durationSeconds) / 60;
-    return scoreCandidate(curatedOnRoute(path, viaIds)) - extraMinutes * DETOUR_TIME_PENALTY_PER_MINUTE;
+    return scoreCandidate(curatedOnRoute(path, viaIds), preference) - extraMinutes * DETOUR_TIME_PENALTY_PER_MINUTE;
   };
   const baseValue = value(basePath, [], fastest.durationSeconds);
+  const baseRetrace = retraceMeters(basePath);
 
   const seen = new Map<string, Trial | null>();
   const tryWaypoints = async (set: CuratedLandmark[]): Promise<Trial | null> => {
@@ -49,11 +54,13 @@ export async function findScenicDetours(
     try {
       const [route] = await computeRoutes(start, end, ordered);
       if (route.durationSeconds - fastest.durationSeconds <= budgetSeconds) {
-        const viaIds = ordered.map((c) => c.id);
-        trial = {
-          route: { ...route, viaIds },
-          value: value(decodePolyline(route.encodedPolyline), viaIds, route.durationSeconds),
-        };
+        const routePath = decodePolyline(route.encodedPolyline);
+        // Skip routes that double back (into a parking lot, a dead end, out and
+        // back along a causeway) just to touch a waypoint.
+        if (retraceMeters(routePath) <= baseRetrace + MAX_DETOUR_RETRACE_METERS) {
+          const viaIds = ordered.map((c) => c.id);
+          trial = { route: { ...route, viaIds }, value: value(routePath, viaIds, route.durationSeconds) };
+        }
       }
     } catch (err) {
       if (!(err instanceof GoogleMapsError)) throw err; // a failed trial is just skipped

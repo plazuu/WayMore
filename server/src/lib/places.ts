@@ -1,4 +1,5 @@
 import { GoogleMapsError } from "./googleMaps";
+import type { ScenicPreference } from "../config";
 import type { LatLng } from "./polyline";
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
@@ -9,6 +10,15 @@ const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 export const NATURE_TYPES = ["beach", "park", "city_park", "national_park", "state_park", "botanical_garden", "garden", "marina", "scenic_spot"];
 export const LANDMARK_ONLY_TYPES = ["tourist_attraction", "historical_landmark", "monument", "sculpture", "plaza", "fountain", "bridge", "observation_deck", "cultural_landmark"];
 export const LANDMARK_TYPES = [...LANDMARK_ONLY_TYPES, ...NATURE_TYPES];
+
+// Each search returns only the 10 most popular places, and parks crowd out
+// monuments and architecture. So a user who prefers one kind gets a search for
+// just that kind; the default keeps the mixed search (same cost as before).
+export function landmarkTypesFor(preference: ScenicPreference): string[] {
+  if (preference === "city") return LANDMARK_ONLY_TYPES;
+  if (preference === "nature") return NATURE_TYPES;
+  return LANDMARK_TYPES;
+}
 export const FOOD_TYPES = ["restaurant", "cafe"];
 /** Places that sit on the water; road near them counts as waterfront. */
 export const WATER_TYPES = ["marina", "beach", "fishing_pier", "ferry_terminal", "island"];

@@ -73,13 +73,22 @@ export interface RouteResponse {
   scenic: RouteOption;
   /** scenic.durationSeconds - normal.durationSeconds, can be 0. */
   extraTimeSeconds: number;
+  /** A longer detour that scores better than `scenic`. Absent when there isn't a distinct, better one. */
+  scenicLong?: RouteOption;
+  /** scenicLong.durationSeconds - normal.durationSeconds. */
+  extraTimeSecondsLong?: number;
 }
+
+/** What the user wants to see: city landmarks and architecture, nature and waterfront, or a mix. */
+export type ScenicPreference = 'city' | 'balanced' | 'nature';
 
 export interface RouteTuning {
   sampleIntervalMeters?: number;
   searchRadiusMeters?: number;
   /** How much longer than the fastest route the scenic route may take. */
   maxExtraMinutes?: number;
+  /** Which kind of scenery to favor. */
+  preference?: ScenicPreference;
 }
 
 export interface NarrationPlace {
@@ -105,7 +114,8 @@ export interface Narration {
 
 // ---- App-side types derived from the server shapes ----
 
-export type RouteMode = 'normal' | 'scenic';
+/** Fastest, short detour, long detour. */
+export type RouteMode = 'normal' | 'scenic' | 'scenicLong';
 
 export type PoiKind = 'landmark' | 'food';
 

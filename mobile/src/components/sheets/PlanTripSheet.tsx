@@ -3,12 +3,14 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { CURRENT_LOCATION_LABEL, DEMO_TRIP } from '@/config';
 import { isCurrentLocationLabel } from '@/features/location/currentLocation';
+import { useSettings } from '@/state/SettingsContext';
 import { colors, spacing, typography } from '@/theme';
 
 import { AddressAutocompleteField } from '../ui/AddressAutocompleteField';
 import { Button } from '../ui/Button';
 import { Chip } from '../ui/Chip';
 import { IconButton } from '../ui/IconButton';
+import { SegmentedControl } from '../ui/SegmentedControl';
 
 interface PlanTripSheetProps {
   initialStart: string;
@@ -21,6 +23,7 @@ interface PlanTripSheetProps {
 export function PlanTripSheet({ initialStart, initialEnd, onSubmit, onCancel }: PlanTripSheetProps) {
   const [start, setStart] = useState(initialStart);
   const [end, setEnd] = useState(initialEnd);
+  const { settings, updateSettings } = useSettings();
   const endRef = useRef<TextInput>(null);
   const canSubmit = start.trim().length > 0 && end.trim().length > 0;
 
@@ -83,7 +86,20 @@ export function PlanTripSheet({ initialStart, initialEnd, onSubmit, onCancel }: 
         />
       </View>
 
-      {/* Neutral: the preview offers both Fastest and Scenic, and the user picks there. */}
+      <View style={styles.preference}>
+        <Text style={typography.bodyMuted}>What do you want to see?</Text>
+        <SegmentedControl
+          value={settings.scenicPreference}
+          onChange={(scenicPreference) => updateSettings({ scenicPreference })}
+          segments={[
+            { value: 'city', label: 'City' },
+            { value: 'balanced', label: 'Balanced' },
+            { value: 'nature', label: 'Nature' },
+          ]}
+        />
+      </View>
+
+      {/* Neutral: the preview offers Fastest, Short detour and Long detour, and the user picks there. */}
       <Button label="Choose Route" icon="navigate" onPress={submit} disabled={!canSubmit} />
     </View>
   );
@@ -98,5 +114,6 @@ const styles = StyleSheet.create({
   railLine: { width: 2, height: 36, backgroundColor: colors.border, marginVertical: 4 },
   endSquare: { width: 10, height: 10, backgroundColor: colors.routeEnd },
   inputs: { flex: 1, gap: spacing.sm },
+  preference: { gap: spacing.sm },
   suggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
 });

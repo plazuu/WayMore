@@ -190,6 +190,7 @@ export default function MapScreen() {
             active={active}
             mode={state.mode}
             extraTimeSeconds={state.route.extraTimeSeconds}
+            extraTimeSecondsLong={state.route.extraTimeSecondsLong}
             filter={state.filter}
             onChangeMode={actions.setMode}
             onChangeFilter={actions.setFilter}
