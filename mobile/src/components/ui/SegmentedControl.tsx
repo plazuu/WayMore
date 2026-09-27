@@ -28,8 +28,19 @@ export function SegmentedControl<T extends string>({ segments, value, onChange }
             accessibilityState={{ selected }}
             style={[styles.segment, selected && styles.selected]}
           >
-            <Text style={[styles.label, selected && styles.labelSelected]}>{segment.label}</Text>
-            {segment.badge ? <Text style={[styles.badge, selected && styles.badgeSelected]}>{segment.badge}</Text> : null}
+            <Text
+              style={[styles.label, selected && styles.labelSelected]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
+              {segment.label}
+            </Text>
+            {segment.badge ? (
+              <Text style={[styles.badge, selected && styles.badgeSelected]} numberOfLines={1}>
+                {segment.badge}
+              </Text>
+            ) : null}
           </Pressable>
         );
       })}
@@ -46,16 +57,18 @@ const styles = StyleSheet.create({
   },
   segment: {
     flex: 1,
-    flexDirection: 'row',
+    // Label over badge, so three segments fit on a phone without the text overlapping.
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm + 2,
+    minHeight: 48,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
     borderRadius: radii.pill,
   },
   selected: { backgroundColor: colors.background, elevation: 2, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 1 } },
-  label: { fontSize: 15, fontWeight: '500', color: colors.textMuted },
+  label: { fontSize: 14, fontWeight: '500', color: colors.textMuted },
   labelSelected: { color: colors.text, fontWeight: '600' },
-  badge: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
+  badge: { fontSize: 12, marginTop: 1, fontWeight: '600', color: colors.textMuted },
   badgeSelected: { color: colors.accent },
 });
