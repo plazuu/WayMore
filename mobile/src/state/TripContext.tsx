@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useReducer, useRef, type ReactNode } from 'react';
 
-import { planRoute, warmStartNarrations } from '@/services/tripService';
+import { planRoute, warmPoiPhotos, warmStartNarrations } from '@/services/tripService';
 
 import { useSettings, type AppSettings } from './SettingsContext';
 import { initialTripState, tripReducer, type PoiFilter, type TripState } from './tripReducer';
@@ -42,6 +42,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
       const route = await planRoute(start, end, { ...settingsRef.current, ...overrides });
       if (requestId !== requestIdRef.current) return;
       dispatch({ type: 'success', route });
+      warmPoiPhotos(route);
       warmStartNarrations(route);
     } catch (error) {
       if (requestId !== requestIdRef.current) return;
