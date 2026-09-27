@@ -274,6 +274,10 @@ The app's current tour mode: ask for places' lines and audio a few at a time as 
 
 Same for one place: the body is one `Place`, the response one `Narration`.
 
+### `GET /narration/intro`
+
+The trip's opening greeting, a fixed line ("Hey, I'm your scenic copilot! ...") voiced once and cached: `{ "placeId": "intro", "text": "...", "audioUrl": "/audio/intro-<hash>.mp3" | null, "durationHintS": 8 }`. Play it before the first place. The app fetches it while the route preview is open. The live guide does the same by itself: `/tour/tick` returns it (`placeId: "intro"`) on the first tick, before any place, unless a place has already been narrated.
+
 ## Playing narration
 
 1. **One at a time, never overlapping.** A narration that arrives while another plays goes to the end of a queue. The server already drops stale ones, so play everything you receive.

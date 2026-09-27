@@ -8,6 +8,7 @@ import { DestinationGuide, type GuideOptions } from "./guide/flow";
 import { searchPlacesViaServer } from "./guide/places";
 import { createGuideRouter } from "./routes/guide";
 import { narrationRouter } from "./routes/narration";
+import { getIntroNarration } from "./narration/intro";
 import { audioRouter, createTourRouter, tourErrorHandler } from "./routes/tour";
 
 export interface AppOptions extends SessionStoreOptions {
@@ -40,7 +41,7 @@ export function createApp({ store, now, narrate, chatLlm, chatTimeoutMs, guide }
 
   app.use(narrationRouter);
   app.use(audioRouter);
-  app.use(createTourRouter({ store: store ?? new SessionStore({ now, narrate }), chatLlm, chatTimeoutMs }));
+  app.use(createTourRouter({ store: store ?? new SessionStore({ now, narrate, intro: getIntroNarration }), chatLlm, chatTimeoutMs }));
   app.use(
     createGuideRouter(
       new DestinationGuide({

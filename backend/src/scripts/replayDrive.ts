@@ -15,6 +15,7 @@ import { audioCacheDir, llmConfig, ttsConfig } from "../config";
 import { DEMO_INTERVAL_MS, demoPath } from "../live/demoPath";
 import { distanceMeters } from "../live/geo";
 import { SessionStore, type LiveNarration } from "../live/session";
+import { getIntroNarration, INTRO_ID } from "../narration/intro";
 import type { Place } from "../types";
 
 const args = process.argv.slice(2);
@@ -46,7 +47,7 @@ async function main() {
   // Mock mode runs on a simulated clock; real mode ticks in real time so
   // generation latency is measured against the car's actual progress.
   let simNow = Date.now();
-  const store = new SessionStore({ now: real ? Date.now : () => simNow });
+  const store = new SessionStore({ now: real ? Date.now : () => simNow, intro: getIntroNarration });
   const server = createApp({ store }).listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -86,7 +87,9 @@ async function main() {
       const p = places.find((x) => x.id === pending)!;
       console.log(`${t}  trigger   ${p.name}, ${Math.round(distanceMeters(pt, p))} m away`);
     }
-    if (narration) {
+    if (narration?.placeId === INTRO_ID) {
+      console.log(`${t}  intro     "${narration.text}"${narration.audioUrl ? "" : " (no audio)"}`);
+    } else if (narration) {
       const n = narration as LiveNarration;
       const nowMs = real ? Date.now() : i * DEMO_INTERVAL_MS;
       delivered.push({ n, tick: i, waitMs: nowMs - triggeredAt.get(n.placeId)! });
