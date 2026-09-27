@@ -50,7 +50,6 @@ export default function MapScreen() {
   const guide = useTourGuide({
     active: touring,
     pois: active?.allPois ?? NO_POIS,
-    narrations: state.narrations,
     position,
     settings,
   });
@@ -117,7 +116,7 @@ export default function MapScreen() {
         return (
           <TourSheet
             guide={guide}
-            narrationsReady={state.narrationsReady}
+            narrationsReady={!guide.fetchingNarration}
             locationError={locationError}
             narrateLandmarks={settings.narrateLandmarks}
             narrateFood={settings.narrateFood}

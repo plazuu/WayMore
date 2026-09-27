@@ -238,7 +238,7 @@ A 2-minute drive (40 points) north on Biscayne Blvd past Bayside Marketplace (ri
 
 ## Pregenerated narration
 
-The app's current tour mode: ask for every place's line and audio when the trip starts, then trigger playback on the phone as the car approaches each place. The [live guide](#live-guide) is the server-driven alternative that also adds chat; both share the same disk cache and voice.
+The app's current tour mode: ask for places' lines and audio a few at a time as they come within range (2 km, nearest first; the ones near the start while the route preview is open), then trigger playback on the phone as the car approaches each place. Asking for a whole route at once is slow: voices are generated one at a time, so a route with ~80 places takes minutes. The [live guide](#live-guide) is the server-driven alternative that also adds chat; both share the same disk cache and voice.
 
 ### `POST /narration/pregenerate`
 

@@ -1,4 +1,4 @@
-import type { Narration, RouteMode, RouteResponse } from '@/api/types';
+import type { RouteMode, RouteResponse } from '@/api/types';
 
 /**
  * The home screen is one map with a bottom sheet whose content depends on the
@@ -22,9 +22,6 @@ export interface TripState {
   filter: PoiFilter;
   selectedPoiId: string | null;
   error: string | null;
-  /** Narration per POI id, filled once the tour starts. */
-  narrations: Record<string, Narration>;
-  narrationsReady: boolean;
 }
 
 export const initialTripState: TripState = {
@@ -36,8 +33,6 @@ export const initialTripState: TripState = {
   filter: 'all',
   selectedPoiId: null,
   error: null,
-  narrations: {},
-  narrationsReady: false,
 };
 
 export type TripAction =
@@ -50,7 +45,6 @@ export type TripAction =
   | { type: 'setFilter'; filter: PoiFilter }
   | { type: 'selectPoi'; id: string | null }
   | { type: 'startTour' }
-  | { type: 'narrationsLoaded'; narrations: Record<string, Narration> }
   | { type: 'endTour' }
   | { type: 'reset' };
 
@@ -73,11 +67,9 @@ export function tripReducer(state: TripState, action: TripAction): TripState {
     case 'selectPoi':
       return { ...state, selectedPoiId: action.id };
     case 'startTour':
-      return { ...state, phase: 'touring', selectedPoiId: null, narrations: {}, narrationsReady: false };
-    case 'narrationsLoaded':
-      return { ...state, narrations: action.narrations, narrationsReady: true };
+      return { ...state, phase: 'touring', selectedPoiId: null };
     case 'endTour':
-      return { ...state, phase: 'preview', narrations: {}, narrationsReady: false };
+      return { ...state, phase: 'preview' };
     case 'reset':
       return initialTripState;
   }
