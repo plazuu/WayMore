@@ -11,6 +11,9 @@ import { Chip } from '../ui/Chip';
 import { IconButton } from '../ui/IconButton';
 import { SegmentedControl } from '../ui/SegmentedControl';
 
+/** Extra drive time the scenic route may cost. 0 = Auto (the server picks 5 min + 20% of the trip). */
+const EXTRA_TIME_MINUTES = [0, 10, 20, 30];
+
 interface PlanTripSheetProps {
   initialStart: string;
   initialEnd: string;
@@ -90,6 +93,18 @@ export function PlanTripSheet({ initialStart, initialEnd, onSubmit, onCancel }: 
             { value: 'balanced', label: 'Balanced' },
             { value: 'nature', label: 'Nature' },
           ]}
+        />
+      </View>
+
+      <View style={styles.preference}>
+        <Text style={typography.bodyMuted}>How much extra time is okay?</Text>
+        <SegmentedControl
+          value={String(settings.maxExtraMinutes)}
+          onChange={(minutes) => updateSettings({ maxExtraMinutes: Number(minutes) })}
+          segments={EXTRA_TIME_MINUTES.map((minutes) => ({
+            value: String(minutes),
+            label: minutes === 0 ? 'Auto' : `+${minutes} min`,
+          }))}
         />
       </View>
 
