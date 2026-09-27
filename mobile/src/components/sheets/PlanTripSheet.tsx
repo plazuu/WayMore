@@ -16,15 +16,7 @@ interface PlanTripSheetProps {
   onCancel: () => void;
 }
 
-<<<<<<< HEAD
-/**
- * Start/end entry. Plain text for now: the server has no autocomplete proxy yet
- * (docs/api.md lists every endpoint). To add Places Autocomplete, replace
- * `AddressField` with a component that queries a new server endpoint.
- */
-=======
 /** Start/end entry, with Places Autocomplete suggestions as you type (server's `/autocomplete` proxy). */
->>>>>>> origin/main
 export function PlanTripSheet({ initialStart, initialEnd, onSubmit, onCancel }: PlanTripSheetProps) {
   const [start, setStart] = useState(initialStart);
   const [end, setEnd] = useState(initialEnd);

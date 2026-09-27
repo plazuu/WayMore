@@ -154,12 +154,13 @@ export default function MapScreen() {
       )}
 
       {touring && (
-<<<<<<< HEAD
         <AskGuideButton
           onPress={() => setChatOpen(true)}
           style={[styles.askGuide, { bottom: sheetHeight + spacing.md }]}
         />
-=======
+      )}
+
+      {touring && (
         <View style={[styles.topBarRight, { top: insets.top + spacing.sm }]} pointerEvents="box-none">
           <IconButton
             icon={narrationMuted ? 'volumeOff' : 'volumeOn'}
@@ -174,7 +175,6 @@ export default function MapScreen() {
             }
           />
         </View>
->>>>>>> origin/main
       )}
 
       <KeyboardAvoidingView behavior="padding" style={styles.sheetArea} pointerEvents="box-none">
@@ -189,10 +189,7 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   topBar: { position: 'absolute', left: spacing.lg, flexDirection: 'row', gap: spacing.sm },
-<<<<<<< HEAD
-  askGuide: { position: 'absolute', right: spacing.lg },
-=======
   topBarRight: { position: 'absolute', right: spacing.lg, flexDirection: 'row', gap: spacing.sm },
->>>>>>> origin/main
+  askGuide: { position: 'absolute', right: spacing.lg },
   sheetArea: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, justifyContent: 'flex-end' },
 });

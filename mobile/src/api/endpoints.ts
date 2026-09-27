@@ -1,9 +1,13 @@
 import { apiRequest } from './client';
-<<<<<<< HEAD
-import type { ChatReply, ChatRide, Narration, NarrationPlace, RouteResponse, RouteTuning } from './types';
-=======
-import type { AddressSuggestion, Narration, NarrationPlace, RouteResponse, RouteTuning } from './types';
->>>>>>> origin/main
+import type {
+  AddressSuggestion,
+  ChatReply,
+  ChatRide,
+  Narration,
+  NarrationPlace,
+  RouteResponse,
+  RouteTuning,
+} from './types';
 
 // One function per server endpoint. No app logic here; see src/services for that.
 
