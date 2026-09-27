@@ -7,6 +7,7 @@ import {
   LayoutAnimation,
   Linking,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -98,6 +99,7 @@ export function GuideChatModal({ visible, chat, onClose }: GuideChatModalProps) 
               disabled={!canSend}
               accessibilityRole="button"
               accessibilityLabel="Send"
+              accessibilityState={{ disabled: !canSend }}
               style={[styles.sendButton, !canSend && styles.sendDisabled]}
             >
               <Icon name="send" size={18} color={colors.textInverse} style={styles.sendIcon} />
@@ -162,9 +164,8 @@ function TypingBubble() {
 }
 
 /**
- * How much of the screen the keyboard covers, from iOS's own keyboard frame.
- * The page sheet reaches the bottom of the screen, so that is exactly how far
- * the input bar has to move up. Animated with the keyboard's own curve.
+ * How much of the screen the keyboard covers. On iOS we follow the keyboard's
+ * frame exactly; on Android we fall back to the reported keyboard height.
  */
 function useKeyboardHeight(): number {
   const [height, setHeight] = useState(0);
@@ -177,12 +178,19 @@ function useKeyboardHeight(): number {
       }
       setHeight(next);
     };
-    const change = Keyboard.addListener('keyboardWillChangeFrame', (e) => {
-      update(Math.max(0, Dimensions.get('screen').height - e.endCoordinates.screenY), e.duration);
+
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillChangeFrame' : 'keyboardDidShow', (e) => {
+      const nextHeight =
+        Platform.OS === 'ios'
+          ? Math.max(0, Dimensions.get('screen').height - e.endCoordinates.screenY)
+          : e.endCoordinates.height;
+      update(nextHeight, typeof e.duration === 'number' ? e.duration : 0);
     });
-    const hide = Keyboard.addListener('keyboardWillHide', (e) => update(0, e.duration));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', (e) =>
+      update(0, typeof e.duration === 'number' ? e.duration : 0),
+    );
     return () => {
-      change.remove();
+      show.remove();
       hide.remove();
     };
   }, []);
