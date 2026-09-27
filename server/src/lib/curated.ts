@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { Poi } from "./places";
+import { GoogleMapsError } from "./googleMaps";
+import { findPlacePhotoUrl, type Poi } from "./places";
 import { distanceToPathMeters, haversineMeters, type LatLng } from "./polyline";
 import {
   CURATED_CORRIDOR_METERS,
@@ -110,4 +111,33 @@ export function orderAlongRoute(route: LatLng[], landmarks: CuratedLandmark[]): 
     return best;
   };
   return [...landmarks].sort((a, b) => progress(a) - progress(b));
+}
+
+// Curated landmarks never change, so each one's photo is looked up once per
+// server run. Failures aren't cached, so a transient error retries next time.
+const photoCache = new Map<string, Promise<string | undefined>>();
+
+function curatedPhoto(poi: Poi): Promise<string | undefined> {
+  let photo = photoCache.get(poi.id);
+  if (!photo) {
+    photo = findPlacePhotoUrl(poi.name, poi).catch((err) => {
+      photoCache.delete(poi.id);
+      if (err instanceof GoogleMapsError) return undefined;
+      throw err;
+    });
+    photoCache.set(poi.id, photo);
+  }
+  return photo;
+}
+
+/** Adds Google photos to curated stops, so they get pictures like Places results do. */
+export async function withCuratedPhotos(stops: Poi[]): Promise<Poi[]> {
+  return Promise.all(
+    stops.map(async (poi) => (poi.photoUrl || !poi.curated ? poi : { ...poi, photoUrl: await curatedPhoto(poi) })),
+  );
+}
+
+/** Tests only. */
+export function clearCuratedPhotoCache(): void {
+  photoCache.clear();
 }
