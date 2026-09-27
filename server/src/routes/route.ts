@@ -4,7 +4,7 @@ import { decodePolyline, sampleAlongPath, haversineMeters, lastStretch } from ".
 import { searchNearby, dedupeById, LANDMARK_TYPES, FOOD_TYPES, type Poi } from "../lib/places";
 import { scoreCandidate } from "../lib/scoring";
 import { filterLandmarks, filterFoodStops } from "./filter";
-import { curatedOnRoute } from "../lib/curated";
+import { curatedOnRoute, withCuratedPhotos } from "../lib/curated";
 import { findScenicDetours } from "../lib/detours";
 import { scenicBudgetSeconds } from "../lib/budget";
 import {
@@ -120,7 +120,7 @@ routeRouter.post("/route", async (req, res) => {
         );
         const foodPool = dedupeById([...lastMileFood, ...approachFood.flat()]);
 
-        const curatedStops = curatedOnRoute(points, candidate.viaIds);
+        const curatedStops = await withCuratedPhotos(curatedOnRoute(points, candidate.viaIds));
         // Drop Places results that duplicate a curated stop (within ~250 m).
         const placesLandmarks = filterLandmarks(dedupeById(landmarkResults.flat()), points).filter(
           (poi) => !curatedStops.some((c) => haversineMeters(c, poi) < 250),
