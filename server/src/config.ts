@@ -62,6 +62,14 @@ export const FOOD_FAR_SCORE_FACTOR = 0.5;
 // so a 5-star Taco Bell ranks below a 4.4 local spot. They still appear when
 // nothing local is around.
 export const FOOD_CHAIN_WEIGHT = 0.2;
+
+// Display order of a route's places (lib/tiers.ts): rank = TIER_WEIGHTS[tier] * 10
+// + rating * 2 - distance from the route * DETOUR_PENALTY_PER_METER.
+export const TIER_WEIGHTS = { 1: 100, 2: 50, 3: 10, 4: 1 } as const;
+export const DETOUR_PENALTY_PER_METER = 0.01;
+// A restaurant this well rated and reviewed counts as a local institution (tier 2).
+export const ICONIC_FOOD_MIN_RATING = 4.5;
+export const ICONIC_FOOD_MIN_REVIEWS = 2000;
 export const MIN_FOOD_RATING = 4.3;
 export const MIN_FOOD_REVIEWS = 100;
 export const MAX_FOOD_STOPS_PER_ROUTE = 5;

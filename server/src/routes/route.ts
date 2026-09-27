@@ -4,6 +4,7 @@ import { decodePolyline, sampleAlongPath, haversineMeters, lastStretch } from ".
 import { searchNearby, dedupeById, LANDMARK_TYPES, FOOD_TYPES, type Poi } from "../lib/places";
 import { scoreCandidate } from "../lib/scoring";
 import { filterLandmarks, filterFoodStops } from "./filter";
+import { byTierRank, tierOf } from "../lib/tiers";
 import { curatedOnRoute, withCuratedPhotos } from "../lib/curated";
 import { findScenicDetours } from "../lib/detours";
 import { scenicBudgetSeconds } from "../lib/budget";
@@ -125,7 +126,9 @@ routeRouter.post("/route", async (req, res) => {
         const placesLandmarks = filterLandmarks(dedupeById(landmarkResults.flat()), points).filter(
           (poi) => !curatedStops.some((c) => haversineMeters(c, poi) < 250),
         );
-        const landmarks = [...curatedStops, ...placesLandmarks].slice(0, MAX_LANDMARKS_PER_ROUTE);
+        // Which landmarks make the cut is unchanged (hand-picked first, then quality);
+        // the order the app shows them in is by tier, so heritage sights lead.
+        const landmarks = byTierRank([...curatedStops, ...placesLandmarks].slice(0, MAX_LANDMARKS_PER_ROUTE));
         // A place can match both type lists (e.g. a landmark market); it stays a
         // landmark only, since the app keys pins and narration by place id.
         const landmarkIds = new Set(landmarks.map((poi) => poi.id));
@@ -134,7 +137,10 @@ routeRouter.post("/route", async (req, res) => {
           ...candidate,
           samplePointCount: samplePoints.length,
           landmarks,
-          foodStops: filterFoodStops(foodPool, approach, endGeo).filter((poi) => !landmarkIds.has(poi.id)),
+          // Food keeps its last-mile order (closeness and visibility matter there); only tagged.
+          foodStops: filterFoodStops(foodPool, approach, endGeo)
+            .filter((poi) => !landmarkIds.has(poi.id))
+            .map((poi) => ({ ...poi, tier: tierOf(poi) })),
           score: scoreCandidate(landmarks),
         };
       }),
