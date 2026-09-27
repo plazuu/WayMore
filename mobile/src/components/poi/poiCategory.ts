@@ -118,17 +118,51 @@ function lookup(type: string | undefined): PoiCategory | undefined {
   return undefined;
 }
 
-/** How a POI is drawn: its specific category, like Apple Maps, falling back to landmark/food. */
-export function getPoiCategory(poi: TripPoi): PoiCategory {
-  const fromPrimary = lookup(poi.primaryType);
+/**
+ * Name hints for places whose type only says "attraction" or "viewpoint", like
+ * the server's hand-curated landmarks (South Pointe Park, Lummus Park Beach,
+ * the causeways). First match wins.
+ */
+const NAME_HINTS: [RegExp, PoiCategory][] = [
+  [/\bbeach\b/i, BY_TYPE.beach],
+  [/\blighthouse\b/i, category('Lighthouse', 'lighthouse', C.water)],
+  [/\b(causeway|bridge)\b/i, BY_TYPE.bridge],
+  [/\b(marina|harbou?r)\b/i, BY_TYPE.marina],
+  [/\b(boardwalk|broadwalk|waterfront|baywalk|riverwalk|pier)\b/i, category('Waterfront', 'waves', C.water)],
+  [/\bmuseum\b/i, BY_TYPE.museum],
+  [/\b(gardens?|botanical)\b/i, BY_TYPE.garden],
+  [/\b(park|preserve|forest|trail)\b/i, BY_TYPE.park],
+  [/\b(road|boulevard|blvd|avenue|street|drive|calle)\b/i, category('Street', 'road-variant', C.landmark)],
+];
+
+/** Categories that only say "worth seeing" without saying what it is. */
+const GENERIC = new Set([BY_TYPE.scenic_spot, BY_TYPE.observation_deck, BY_TYPE.cultural_landmark]);
+
+function byName(poi: TripPoi): PoiCategory | undefined {
+  return NAME_HINTS.find(([pattern]) => pattern.test(poi.name))?.[1];
+}
+
+function byType(poi: TripPoi): PoiCategory | undefined {
+  // Food stops came from a restaurant/café search: only food categories apply, even for the
+  // primary type, so a café Google files under "store" doesn't turn into a shopping bag.
+  const usable = (c: PoiCategory | undefined) => (c && (poi.kind !== 'food' || c.color === C.food) ? c : undefined);
+  const fromPrimary = usable(lookup(poi.primaryType));
   if (fromPrimary) return fromPrimary;
-  // Food stops came from a restaurant/café search; don't let a stray "store" tag relabel them.
-  const types = poi.kind === 'food' ? poi.types.filter((t) => lookup(t)?.color === C.food) : poi.types;
-  // tourist_attraction is on most results and says nothing specific, so it isn't in the table:
-  // those places fall through to the generic landmark star.
-  for (const type of types) {
-    const found = lookup(type);
+  // tourist_attraction is on most results and says nothing specific, so it isn't in the table.
+  for (const type of poi.types) {
+    const found = usable(lookup(type));
     if (found) return found;
   }
-  return FALLBACK[poi.kind];
+  return undefined;
+}
+
+/** How a POI is drawn: its specific category, like Apple Maps, falling back to landmark/food. */
+export function getPoiCategory(poi: TripPoi): PoiCategory {
+  const fromType = byType(poi);
+  if (fromType && !GENERIC.has(fromType)) return fromType;
+  if (poi.kind === 'landmark') {
+    const fromName = byName(poi);
+    if (fromName) return fromName;
+  }
+  return fromType ?? FALLBACK[poi.kind];
 }

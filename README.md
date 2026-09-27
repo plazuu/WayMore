@@ -1,14 +1,49 @@
-# WayMore
+# WayMore — Scenic Route & Tour Guide App
 
 WayMore (Shellhack2026) is a mobile app that finds the most scenic route between two points, surfaces landmarks and local restaurants along the way, and narrates them aloud as you pass, like a local tour guide riding along. Passengers can also text the guide questions. Aimed at tourists and anyone who wants to get to know an area better.
 
 ## What it does
 
-1. **Where to?**: the user types a start and end address (with autocomplete), or, if they don't know where to go yet, taps "Not sure? Ask the guide" / "Help me pick". A short chat asks whether they're hungry or sightseeing, lists the nearest good places, and fills in the one they pick as the destination, starting from the phone's current location.
-2. **Route**: the server fetches candidate routes and returns both the fastest and the most scenic one (the one passing the best-rated landmarks), with landmarks along each. Besides Google's alternatives it tries detours through hand-picked landmarks near the route. The scenic route may cost at most 5 minutes plus 20% of the trip, or a custom "max extra time"; restaurants are suggested only near the destination (last mile), ranked by how visible they are from the final approach.
-3. **Map and preview**: the app shows the route with Apple Maps-style category pins (museum, park, coffee...) and the top 3 landmarks highlighted, each with a photo and a short description, plus a short cinematic 3D fly-through of the route.
-4. **Live tour guide**: during the trip the app streams its GPS position. As the car approaches a place, the server writes a line ("On your left is the Freedom Tower...") and voices it; the app plays it.
-5. **Chat**: a passenger types a question ("How long has the Heat played there?") and the guide texts back, knowing where the car is and what it just narrated, with web sources.
+Google Maps gets you there fastest. This gets you there **worth remembering** — a route chosen
+for what you'll see out the window, with a guide riding along who knows what everything is.
+
+- **Don't know where to go? Ask.** "Not sure? Ask the guide" (or the "Help me pick" pill) opens a
+  short chat: hungry or sightseeing, then cuisine or kind of place, then the nearest good places.
+  Pick one and it becomes the destination, starting from where you are. Typing an address instead
+  gets autocomplete suggestions as you go.
+- **Two routes, one tap.** Every search returns both the fastest route and the most scenic one,
+  with the honest price of the detour on the toggle (`+8 min`). Scenic means measured: least
+  highway, most waterfront, best-rated landmarks — within a time budget (5 min + 20% of the trip,
+  or your own "max extra time"), not a scenic wander. Besides Google's alternatives, the server
+  tries detours through hand-picked landmarks the fastest route misses.
+- **The good stuff, pinned.** Landmarks found along the actual polyline, and highly-rated local
+  restaurants near the destination (ranked by how visible they are from the final approach), each
+  with a photo, a description, cuisine and price, on Apple Maps-style category pins with the top 3
+  landmarks highlighted. Filter to landmarks, food, or both.
+- **A cinematic 3D fly-through.** Before you leave, watch the drive — the route, the terrain and
+  your stops rendered in three.js, so you can see the trip instead of reading an ETA.
+- **A guide who talks as you drive.** The app streams GPS; as you approach a place, the backend
+  writes the line and voices it, and it plays through the car speakers at the right moment.
+  "On your left is the Freedom Tower..." Landmarks are informative, restaurants are pitched as
+  stops — mute either independently.
+- **Ask it anything.** The passenger taps "Ask Guide" and texts a question. The chat agent knows
+  where the car is, what has already been narrated and what's still ahead, and searches the web
+  for the rest — with sources under the reply.
+
+## A trip, screen by screen
+
+|  |  |
+|---|---|
+| <img src="docs/screenshots/01-plan.png" width="270" alt="Plan your trip"> | <img src="docs/screenshots/02-preview.png" width="270" alt="Scenic route preview"> |
+| **1. Plan.** Type a start and a destination — or tap the demo chip for Brickell → Wynwood. Geocoding is proxied through our own server, so the Maps key never leaves it. | **2. Compare.** Fastest vs. Scenic with the honest cost of the detour on the badge (`+8 min`), then the distance, the landmark and food counts, and a Both / Landmarks / Food filter over the cards. Switching redraws the map from data already in hand — no second request. |
+
+|  |  |
+|---|---|
+| <img src="docs/screenshots/03-poi.png" width="270" alt="Landmark detail card"> | <img src="docs/screenshots/04-touring.png" width="270" alt="Live narration while touring"> |
+| **3. Browse the stops.** Tap a pin or a card for the photo, the rating and review count, and the description — cuisine and price level for restaurants. Pins cluster as the map zooms out. | **4. Drive.** "Touring" counts the places passed, shows the line being spoken right now, and gives you a pause button plus separate mute chips for landmarks and food. The **Ask Guide** pill opens a chat that answers with the ride as context and cites its sources. |
+
+Not pictured: the **3D** button on the preview sheet plays a three.js fly-through of the whole
+drive before you leave, naming each place as the camera passes it.
 
 ## Layout
 
@@ -140,14 +175,14 @@ mobile/src/
   features/location/
     currentLocation.ts    one-shot phone position for the guide and the trip start
   features/preview/
-    routeScene.ts         three.js scene for the 3D route fly-through
+    routeScene.ts         three.js scene for the 3D fly-through (route ribbon, POI markers, camera path)
     glRenderer.ts         expo-gl renderer setup
   components/
     map/                  RouteMap, category pins (top-3 landmarks highlighted)
     sheets/               one component per phase
     chat/                 floating guide pill (Ask Guide / Help me pick) + iOS page-sheet chat modal
     destination/          "Where to?" guide chat modal (chips, place cards)
-    preview/              RoutePreview3D, the cinematic fly-through card
+    preview/              RoutePreview3D — the fly-through modal over the map
     poi/                  card, detail card, photo, icon; poiCategory.ts maps places to category glyphs/colors
     ui/                   Button, Chip, SegmentedControl, Sheet, Icon, AddressAutocompleteField, ...
   theme.ts                colors, spacing, type: restyle here
@@ -166,6 +201,7 @@ mobile/src/
 | Change when narration fires or how far ahead it's fetched | `TOUR` in `src/config.ts`, logic in `features/tour/proximity.ts` and `useTourGuide.ts` |
 | Change how the scenic route is picked | `server/src/config.ts` (time budget, landmark/food filters, detours); hand-picked landmarks in `server/data/landmarks.json` |
 | Change the chat welcome line or limits | `CHAT` in `src/config.ts`; UI in `components/chat/GuideChatModal.tsx` |
+| Change the 3D fly-through (camera, colors, speed) | `features/preview/routeScene.ts`; the modal chrome is `components/preview/RoutePreview3D.tsx` |
 | Pause narration while chatting | Call `pause()` / `resume()` from `useTourGuide` |
 | Persist settings | `state/SettingsContext.tsx` (currently in-memory) |
 | Add a screen | New file in `src/app/`, then `router.push('/name')` |

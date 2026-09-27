@@ -183,6 +183,39 @@ export async function searchText(
   return (data.places ?? []).map(toPoi);
 }
 
+/**
+ * Photo for a place known only by name and position (e.g. the hand-curated
+ * landmarks), via one Text Search biased to that spot. Undefined if Google has none.
+ */
+export async function findPlacePhotoUrl(name: string, near: LatLng): Promise<string | undefined> {
+  if (!GOOGLE_MAPS_API_KEY) {
+    throw new GoogleMapsError("GOOGLE_MAPS_API_KEY is not configured", 500);
+  }
+
+  const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
+      "X-Goog-FieldMask": "places.photos",
+    },
+    body: JSON.stringify({
+      textQuery: name,
+      pageSize: 1,
+      locationBias: { circle: { center: { latitude: near.lat, longitude: near.lng }, radius: 1000 } },
+    }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new GoogleMapsError(`Places text search failed: ${data.error?.message ?? response.statusText}`, 502);
+  }
+
+  const photoName = data.places?.[0]?.photos?.[0]?.name;
+  return photoName ? `/photo?name=${encodeURIComponent(photoName)}` : undefined;
+}
+
 export function dedupeById<T extends { id: string }>(items: T[]): T[] {
   const seen = new Map<string, T>();
   for (const item of items) {
