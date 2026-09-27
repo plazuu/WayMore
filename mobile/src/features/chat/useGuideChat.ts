@@ -16,6 +16,8 @@ export interface ChatMessage {
   placeName?: string;
   /** Local error line (server unreachable), styled differently from a real reply. */
   error?: boolean;
+  /** On an error line: the question that failed, so the chat can offer a retry. */
+  retryText?: string;
 }
 
 interface UseGuideChatOptions {
@@ -39,9 +41,11 @@ const newId = () => `m${++nextId}`;
 /**
  * Passenger chat with the guide (POST /tour/chat). Separate from the narration
  * loop: the tour plays pregenerated lines and never opens a live-guide session,
- * so this hook starts its own (POST /tour/start with the route's places) on the
- * first question. It sends no ticks, so the backend generates no narration for it;
- * instead each question carries the ride state (position, places reached, recent lines).
+ * so this hook starts its own (POST /tour/start with the route's places) as soon
+ * as the tour starts, so the first question doesn't wait for it; if that failed,
+ * the first question tries again. It sends no ticks, so the backend generates no
+ * narration for it; instead each question carries the ride state (position,
+ * places reached, recent lines).
  */
 export function useGuideChat({ active, pois, sessionId: externalSessionId, getRide }: UseGuideChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>(() => [welcomeMessage()]);
@@ -52,9 +56,32 @@ export function useGuideChat({ active, pois, sessionId: externalSessionId, getRi
   const getRideRef = useRef(getRide);
   getRideRef.current = getRide;
   const sessionRef = useRef<string | null>(null);
+  // The in-flight /tour/start, shared so the tour start and a quick first question don't open two sessions.
+  const startingRef = useRef<Promise<string> | null>(null);
   // Bumped when the tour ends so late replies from the old trip are dropped.
   const generationRef = useRef(0);
   const wasActiveRef = useRef(false);
+
+  const startSession = useCallback((): Promise<string> => {
+    if (startingRef.current) return startingRef.current;
+    const generation = generationRef.current;
+    const places = poisRef.current.slice(0, CHAT.maxSessionPlaces).map(toNarrationPlace);
+    const starting = postTourStart(places)
+      .then(({ sessionId }) => {
+        if (generation !== generationRef.current) {
+          // The tour ended while this was in flight.
+          postTourEnd(sessionId).catch(() => {});
+          throw new Error('The tour has ended.');
+        }
+        sessionRef.current = sessionId;
+        return sessionId;
+      })
+      .finally(() => {
+        if (startingRef.current === starting) startingRef.current = null;
+      });
+    startingRef.current = starting;
+    return starting;
+  }, []);
 
   useEffect(() => {
     if (!active) {
@@ -63,6 +90,7 @@ export function useGuideChat({ active, pois, sessionId: externalSessionId, getRi
       generationRef.current++;
       const id = sessionRef.current;
       sessionRef.current = null;
+      startingRef.current = null;
       if (id) postTourEnd(id).catch(() => {});
       setMessages([welcomeMessage()]);
       setSending(false);
@@ -70,6 +98,9 @@ export function useGuideChat({ active, pois, sessionId: externalSessionId, getRi
     }
 
     wasActiveRef.current = true;
+    if (!externalSessionId) startSession().catch(() => {});
+    // Only on the tour starting; startSession is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
   useEffect(() => {
@@ -81,13 +112,6 @@ export function useGuideChat({ active, pois, sessionId: externalSessionId, getRi
     };
   }, []);
 
-  const startSession = useCallback(async () => {
-    const places = poisRef.current.slice(0, CHAT.maxSessionPlaces).map(toNarrationPlace);
-    const { sessionId } = await postTourStart(places);
-    sessionRef.current = sessionId;
-    return sessionId;
-  }, []);
-
   const ask = useCallback(
     async (message: string) => {
       let sessionId = externalSessionId ?? sessionRef.current ?? (await startSession());
@@ -97,6 +121,7 @@ export function useGuideChat({ active, pois, sessionId: externalSessionId, getRi
       } catch (error) {
         // Server restarted or session idled out: start over once with the same places.
         if (!(error instanceof ApiError && error.status === 404)) throw error;
+        sessionRef.current = null;
         sessionId = await startSession();
         return postTourChat(sessionId, message, ride);
       }
@@ -105,11 +130,14 @@ export function useGuideChat({ active, pois, sessionId: externalSessionId, getRi
   );
 
   const send = useCallback(
-    async (raw: string) => {
+    async (raw: string, { retryOf }: { retryOf?: string } = {}) => {
       const text = raw.trim().slice(0, CHAT.maxMessageChars);
       if (!text || sending || !active) return;
       const generation = generationRef.current;
-      setMessages((prev) => [...prev, { id: newId(), role: 'user', text }]);
+      // A retry replaces the error line and reuses the question bubble already shown.
+      setMessages((prev) =>
+        retryOf ? prev.filter((m) => m.id !== retryOf) : [...prev, { id: newId(), role: 'user', text }],
+      );
       setSending(true);
 
       let reply: ChatMessage;
@@ -119,7 +147,7 @@ export function useGuideChat({ active, pois, sessionId: externalSessionId, getRi
         reply = { id: newId(), role: 'guide', text: res.reply, sources: res.sources, placeName: place?.name };
       } catch (error) {
         const detail = error instanceof Error ? error.message : 'Something went wrong.';
-        reply = { id: newId(), role: 'guide', text: `I couldn't reach the guide. ${detail}`, error: true };
+        reply = { id: newId(), role: 'guide', text: `I couldn't reach the guide. ${detail}`, error: true, retryText: text };
       }
       if (generation !== generationRef.current) return;
       setMessages((prev) => [...prev, reply]);
@@ -128,7 +156,15 @@ export function useGuideChat({ active, pois, sessionId: externalSessionId, getRi
     [active, ask, sending],
   );
 
-  return { messages, sending, send };
+  /** Asks a failed question again, in place of its error line. */
+  const retry = useCallback(
+    (message: ChatMessage) => {
+      if (message.retryText) send(message.retryText, { retryOf: message.id });
+    },
+    [send],
+  );
+
+  return { messages, sending, send, retry };
 }
 
 export type GuideChat = ReturnType<typeof useGuideChat>;

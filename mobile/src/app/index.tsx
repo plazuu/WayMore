@@ -105,6 +105,24 @@ export default function MapScreen() {
     if (!touring) setChatOpen(false);
   }, [touring]);
 
+  // One voice at a time: hold the narration while the passenger chats, and pick
+  // it back up on close unless they had already paused it themselves.
+  const pausedForChat = useRef(false);
+  const chatVisible = touring && chatOpen;
+  useEffect(() => {
+    if (chatVisible) {
+      if (!guide.paused) {
+        pausedForChat.current = true;
+        guide.pause();
+      }
+    } else if (pausedForChat.current) {
+      pausedForChat.current = false;
+      guide.resume();
+    }
+    // Only on the chat opening or closing; guide is a new object every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatVisible]);
+
   // "Where to?" guide: once it sets a destination, leave its reply up for a
   // moment, then open the planner from the current location to that place.
   const [destinationGuideOpen, setDestinationGuideOpen] = useState(false);
@@ -258,7 +276,7 @@ export default function MapScreen() {
       */}
       <Animated.View style={[styles.keyboardBackdrop, { height: keyboardPadding }]} pointerEvents="none" />
 
-      <GuideChatModal visible={touring && chatOpen} chat={chat} onClose={() => setChatOpen(false)} />
+      <GuideChatModal visible={chatVisible} chat={chat} onClose={() => setChatOpen(false)} />
       <DestinationGuideModal
         visible={destinationGuideOpen}
         guide={destinationGuide}
