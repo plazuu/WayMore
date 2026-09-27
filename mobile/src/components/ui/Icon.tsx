@@ -25,6 +25,7 @@ const GLYPHS = {
   chevronRight: '›',
   navigate: '➤',
   image: '▦',
+  cube: '◈',
 } as const;
 
 export type IconName = keyof typeof GLYPHS;

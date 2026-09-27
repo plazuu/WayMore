@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { formatDistance, formatDuration, formatExtraTime, shortPlaceName } from '@/lib/format';
@@ -5,6 +6,7 @@ import type { ActiveRoute } from '@/state/useActiveRoute';
 import type { PoiFilter } from '@/state/tripReducer';
 import { colors, spacing, typography } from '@/theme';
 
+import { RoutePreview3D } from '../preview/RoutePreview3D';
 import { PoiCard } from '../poi/PoiCard';
 import { PoiDetailCard } from '../poi/PoiDetailCard';
 import { POI_KIND_STYLE } from '../poi/poiStyle';
@@ -46,7 +48,8 @@ export function RoutePreviewSheet({
   onStartTour,
   onClose,
 }: RoutePreviewSheetProps) {
-  const { option, visiblePois, selectedPoi, sameRoute } = active;
+  const { option, coordinates, allPois, visiblePois, selectedPoi, sameRoute } = active;
+  const [preview3D, setPreview3D] = useState(false);
 
   if (selectedPoi) {
     return (
@@ -115,7 +118,19 @@ export function RoutePreviewSheet({
         </View>
       )}
 
-      <Button label="Start tour" icon="play" onPress={onStartTour} />
+      <View style={styles.actions}>
+        <Button label="3D" icon="cube" variant="secondary" onPress={() => setPreview3D(true)} />
+        <Button label="Start tour" icon="play" onPress={onStartTour} style={styles.startTour} />
+      </View>
+
+      <RoutePreview3D
+        visible={preview3D}
+        onClose={() => setPreview3D(false)}
+        coordinates={coordinates}
+        pois={allPois}
+        title={mode === 'scenic' ? 'Scenic route' : 'Fastest route'}
+        subtitle={`${formatDuration(option.durationSeconds)} · ${formatDistance(option.distanceMeters)} to ${shortPlaceName(destination)}`}
+      />
     </View>
   );
 }
@@ -129,4 +144,6 @@ const styles = StyleSheet.create({
   filters: { flexDirection: 'row', gap: spacing.sm },
   list: { marginHorizontal: -spacing.lg, paddingHorizontal: spacing.lg, flexGrow: 0 },
   empty: { paddingVertical: spacing.lg, alignItems: 'center' },
+  actions: { flexDirection: 'row', gap: spacing.sm },
+  startTour: { flex: 1 },
 });

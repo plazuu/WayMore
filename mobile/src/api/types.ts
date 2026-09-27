@@ -29,6 +29,8 @@ export interface Poi {
   types: string[];
   rating?: number;
   userRatingCount?: number;
+  /** Google's main category for the place, e.g. "museum" or "service". */
+  primaryType?: string;
   /** "$".."$$$$" or "Free"; food stops only. */
   priceLevel?: string;
   /** e.g. "Mediterranean"; food stops only. */
@@ -100,4 +102,8 @@ export type PoiKind = 'landmark' | 'food';
 /** A POI tagged with which list it came from, so landmarks and food stops can share one list/map layer. */
 export interface TripPoi extends Poi {
   kind: PoiKind;
+  /** 1–3 for the route's top three landmarks (see `getTripPois`). */
+  topRank?: TopRank;
 }
+
+export type TopRank = 1 | 2 | 3;
