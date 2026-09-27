@@ -21,6 +21,9 @@ export function validatePlace(value: unknown): string | null {
   for (const field of ["tagline", "category", "description"]) {
     if (p[field] !== undefined && typeof p[field] !== "string") return `${field} must be a string`;
   }
+  if (p.rating !== undefined && !(typeof p.rating === "number" && Number.isFinite(p.rating))) {
+    return "rating must be a number";
+  }
   if (p.facts !== undefined && !(Array.isArray(p.facts) && p.facts.every((f) => typeof f === "string"))) {
     return "facts must be an array of strings";
   }

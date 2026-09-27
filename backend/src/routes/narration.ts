@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { getNarration, pregenerate } from "../narration/cache";
+import { getIntroNarration } from "../narration/intro";
 import type { Place } from "../types";
 import { validatePlace } from "./tour";
 
@@ -39,4 +40,10 @@ narrationRouter.post("/narration", async (req, res) => {
     return;
   }
   res.json(await getNarration(req.body as Place));
+});
+
+// The trip's opening greeting ("I'm your scenic copilot..."), played before the
+// first place. Same shape as a place's narration, with placeId "intro".
+narrationRouter.get("/narration/intro", async (_req, res) => {
+  res.json(await getIntroNarration());
 });

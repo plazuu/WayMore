@@ -73,15 +73,37 @@ export const FOOD_VISIBLE_WEIGHT = 1.5;
 export const FOOD_APPROACH_SAMPLE_METERS = 400;
 export const FOOD_APPROACH_SEARCH_RADIUS_METERS = 200;
 export const FOOD_FAR_SCORE_FACTOR = 0.5;
+// Chains and generic stops (lib/chains.ts) keep this share of their food-stop score,
+// so a 5-star Taco Bell ranks below a 4.4 local spot. They still appear when
+// nothing local is around.
+export const FOOD_CHAIN_WEIGHT = 0.2;
+
+// Display order of a route's places (lib/tiers.ts): rank = TIER_WEIGHTS[tier] * 10
+// + rating * 2 - distance from the route * DETOUR_PENALTY_PER_METER.
+export const TIER_WEIGHTS = { 1: 100, 2: 50, 3: 10, 4: 1 } as const;
+export const DETOUR_PENALTY_PER_METER = 0.01;
+// A restaurant this well rated and reviewed counts as a local institution (tier 2).
+export const ICONIC_FOOD_MIN_RATING = 4.5;
+export const ICONIC_FOOD_MIN_REVIEWS = 2000;
 export const MIN_FOOD_RATING = 4.3;
 export const MIN_FOOD_REVIEWS = 100;
 export const MAX_FOOD_STOPS_PER_ROUTE = 5;
 
+// Destination guide place search (POST /places/nearby, used by backend/'s
+// "Where to?" guide). Fetch this many by popularity, keep the good ones, then
+// show the nearest. Fewer than the limit left: one retry at double the radius.
+export const PLACES_SEARCH_FETCH_COUNT = 20;
+export const PLACES_SEARCH_DEFAULT_RADIUS_METERS = 3000;
+export const PLACES_SEARCH_MAX_RADIUS_METERS = 20_000;
+export const PLACES_SEARCH_MIN_RATING = 4.0;
+export const PLACES_SEARCH_MIN_REVIEWS = 50;
+export const PLACES_SEARCH_DEFAULT_LIMIT = 5;
+export const PLACES_SEARCH_MAX_LIMIT = 10;
 
 // --- Backend proxy ---
-// /tour, /audio, /dev and /narration are forwarded to the backend/ narration
+// /tour, /audio, /dev, /narration and /guide are forwarded to the backend/
 // service, so the app (and the demo tunnel) needs only this server's URL.
-export const PROXIED_PREFIXES = ["/tour", "/audio", "/dev", "/narration"];
+export const PROXIED_PREFIXES = ["/tour", "/audio", "/dev", "/narration", "/guide"];
 /** Longer than the backend's slowest live call (chat has a 12 s budget). */
 export const PROXY_TIMEOUT_MS = 20_000;
 /**

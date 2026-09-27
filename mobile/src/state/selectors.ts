@@ -34,14 +34,24 @@ function isAttraction(poi: Poi): boolean {
   return ATTRACTION_TYPES.has(poi.primaryType) || poi.primaryType.endsWith('museum');
 }
 
-/** Ids of the route's three best attractions, mapped to their rank. */
+/**
+ * Ids of the route's three best attractions, mapped to their rank. With the
+ * server's tiers, tier 1 (heritage, nature, landmarks) fills the podium first and
+ * only tiers 1-2 can place; chains never do, whatever their rating. Without tiers
+ * (demo data), attractions compete on rating alone.
+ */
 function topLandmarkRanks(landmarks: Poi[]): Map<string, TopRank> {
+  const tiered = landmarks.some((p) => p.tier !== undefined);
+  const eligible = (p: Poi) => (tiered ? p.tier !== undefined && p.tier <= 2 : isAttraction(p));
   const ranked = landmarks
-    .filter((p) => isAttraction(p) && landmarkStanding(p) > 0)
-    .sort((a, b) => landmarkStanding(b) - landmarkStanding(a))
+    .filter((p) => eligible(p) && landmarkStanding(p) > 0)
+    .sort((a, b) => (tiered ? tierOrder(a) - tierOrder(b) : 0) || landmarkStanding(b) - landmarkStanding(a))
     .slice(0, 3);
   return new Map(ranked.map((p, i) => [p.id, (i + 1) as TopRank]));
 }
+
+/** Lower first; places without a tier go last. */
+const tierOrder = (p: Poi) => p.tier ?? 5;
 
 /** Landmarks and food stops merged into one list, tagged by kind, narrowed by the filter. */
 export function getTripPois(option: RouteOption, filter: PoiFilter): TripPoi[] {
@@ -49,7 +59,10 @@ export function getTripPois(option: RouteOption, filter: PoiFilter): TripPoi[] {
   const landmarks: TripPoi[] =
     filter === 'food'
       ? []
-      : option.landmarks.map((p) => ({ ...p, kind: 'landmark', topRank: topRanks.get(p.id) }));
+      : // Stable sort: keeps the server's rank order within a tier (a no-op for server data, which comes sorted).
+        [...option.landmarks]
+          .sort((a, b) => tierOrder(a) - tierOrder(b))
+          .map((p) => ({ ...p, kind: 'landmark', topRank: topRanks.get(p.id) }));
   const food: TripPoi[] = filter === 'landmarks' ? [] : option.foodStops.map((p) => ({ ...p, kind: 'food' }));
   return [...landmarks, ...food];
 }

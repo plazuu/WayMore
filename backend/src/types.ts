@@ -8,6 +8,8 @@ export interface Place {
   category?: string;
   description?: string;
   facts?: string[];
+  /** Google rating, 1-5. Optional; importance scoring treats a missing one as neutral. */
+  rating?: number;
   lat: number;
   lng: number;
   side?: "left" | "right" | "ahead";

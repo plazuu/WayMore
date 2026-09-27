@@ -8,7 +8,8 @@ import { initialTripState, tripReducer, type PoiFilter, type TripState } from '.
 import type { RouteMode } from '@/api/types';
 
 interface TripActions {
-  openPlanner: () => void;
+  /** Optional prefill, e.g. from the "Where to?" guide. */
+  openPlanner: (prefill?: { start?: string; end?: string }) => void;
   editTrip: () => void;
   findRoute: (start: string, end: string, overrides?: Partial<AppSettings>) => Promise<void>;
   /** Re-runs the last search. `overrides` apply to this request only (settings state updates on the next render). */
@@ -57,7 +58,7 @@ export function TripProvider({ children }: { children: ReactNode }) {
 
   const actions = useMemo<TripActions>(
     () => ({
-      openPlanner: () => dispatch({ type: 'openPlanner' }),
+      openPlanner: (prefill) => dispatch({ type: 'openPlanner', ...prefill }),
       editTrip: () => {
         requestIdRef.current++;
         dispatch({ type: 'editTrip' });

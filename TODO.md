@@ -86,6 +86,15 @@ Branch: `feature/polish`
 - [ ] App icon, splash screen, basic style pass — app icon + Android adaptive icon + favicon are in place (`mobile/assets/`, wired in `app.json`); no `expo-splash-screen` plugin configured yet so there's no real splash screen, and no dedicated style/theming pass beyond the existing component styles
 - [ ] Rehearse demo, record backup video in case of live-demo wifi issues (see README "Demo day": `npm run replay:drive -- --real` fills the audio cache) — not started
 
+## "Where to?" destination guide
+Branch: `feature/destination-guide`
+
+- [x] `POST /guide/destination` (`backend/src/guide/`, `backend/src/routes/guide.ts`): server-owned flow intent → category → results → confirmed, chips per stage, keyword interpretation of typed text, 30 min in-memory conversations; proxied through `server/`. API for the app: `docs/destination-guide-api.md`
+- [x] `POST /places/nearby` in `server/` (`server/src/lib/placeSearch.ts`): 20 by popularity within 3 km, rating ≥ 4.0 and ≥ 50 reviews, closed places dropped, sorted by computed distance, one retry at 6 km; Text Search for free text
+- [ ] `POST /route` accepts `{ lat, lng }` for start/end (origin = current GPS)
+- [ ] LLM interpretation of typed text (OpenAI, optional local Ollama), deterministic fallback
+- [x] App: "Not sure? Ask the guide" on the home sheet opens the chat (`mobile/src/components/destination/DestinationGuideModal.tsx`, `mobile/src/features/destination/useDestinationGuide.ts`); picking a place opens the planner from "Current location" (sent as the phone's coordinates) to the place
+
 ## Stretch (only if time remains)
 
 - [ ] Detour insertion into scoring (bounded waypoint optimization to route through a great nearby landmark)

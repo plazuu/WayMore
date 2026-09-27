@@ -4,6 +4,7 @@ import { Animated, Keyboard, Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AskGuideButton } from '@/components/chat/AskGuideButton';
+import { DestinationGuideModal } from '@/components/destination/DestinationGuideModal';
 import { GuideChatModal } from '@/components/chat/GuideChatModal';
 import { RouteMap } from '@/components/map/RouteMap';
 import { HomeSheet } from '@/components/sheets/HomeSheet';
@@ -14,12 +15,15 @@ import { TourSheet } from '@/components/sheets/TourSheet';
 import { IconButton } from '@/components/ui/IconButton';
 import { Sheet } from '@/components/ui/Sheet';
 import { useGuideChat } from '@/features/chat/useGuideChat';
+import { useDestinationGuide } from '@/features/destination/useDestinationGuide';
+import { isLocationDenied } from '@/features/location/currentLocation';
 import { usePosition } from '@/features/tour/usePosition';
 import { useTourGuide } from '@/features/tour/useTourGuide';
 import { shortPlaceName } from '@/lib/format';
 import { useSettings } from '@/state/SettingsContext';
 import { useTrip } from '@/state/TripContext';
 import { useActiveRoute } from '@/state/useActiveRoute';
+import { CURRENT_LOCATION_LABEL, DESTINATION_GUIDE } from '@/config';
 import { colors, spacing } from '@/theme';
 
 import type { LatLng, TripPoi } from '@/api/types';
@@ -102,10 +106,56 @@ export default function MapScreen() {
     if (!touring) setChatOpen(false);
   }, [touring]);
 
+  // One voice at a time: hold the narration while the passenger chats, and pick
+  // it back up on close unless they had already paused it themselves.
+  const pausedForChat = useRef(false);
+  const chatVisible = touring && chatOpen;
+  useEffect(() => {
+    if (chatVisible) {
+      if (!guide.paused) {
+        pausedForChat.current = true;
+        guide.pause();
+      }
+    } else if (pausedForChat.current) {
+      pausedForChat.current = false;
+      guide.resume();
+    }
+    // Only on the chat opening or closing; guide is a new object every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatVisible]);
+
+  // "Where to?" guide: once it sets a destination, leave its reply up for a
+  // moment, then open the planner from the current location to that place.
+  const [destinationGuideOpen, setDestinationGuideOpen] = useState(false);
+  const pickedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const destinationGuide = useDestinationGuide({
+    active: destinationGuideOpen,
+    onDestination: (destination) => {
+      pickedTimer.current = setTimeout(() => {
+        setDestinationGuideOpen(false);
+        actions.openPlanner({
+          start: CURRENT_LOCATION_LABEL,
+          end: destination.address ? `${destination.name}, ${destination.address}` : destination.name,
+        });
+      }, DESTINATION_GUIDE.confirmDelayMs);
+    },
+  });
+  useEffect(() => {
+    if (!destinationGuideOpen && pickedTimer.current) clearTimeout(pickedTimer.current);
+  }, [destinationGuideOpen]);
+
+  // "Where to?" starts from the phone's position, like the guide does, unless the
+  // user already typed a start or has turned location access down. The label is
+  // resolved to coordinates only when the route is requested.
+  const openPlannerFromHome = async () => {
+    if (state.start.trim() || (await isLocationDenied())) actions.openPlanner();
+    else actions.openPlanner({ start: CURRENT_LOCATION_LABEL });
+  };
+
   const renderSheet = () => {
     switch (state.phase) {
       case 'idle':
-        return <HomeSheet onWhereTo={actions.openPlanner} />;
+        return <HomeSheet onWhereTo={openPlannerFromHome} onAskGuide={() => setDestinationGuideOpen(true)} />;
       case 'planning':
         return (
           <PlanTripSheet
@@ -196,6 +246,16 @@ export default function MapScreen() {
         />
       )}
 
+      {!touring && state.phase !== 'loading' && (
+        <AskGuideButton
+          icon="bot"
+          label="Help me pick"
+          accessibilityLabel="Not sure where to go? Chat with the guide"
+          onPress={() => setDestinationGuideOpen(true)}
+          style={[styles.askGuide, { bottom: sheetHeight + spacing.md }]}
+        />
+      )}
+
       {touring && (
         <View style={[styles.topBarRight, { top: insets.top + spacing.sm }]} pointerEvents="box-none">
           <IconButton
@@ -226,7 +286,12 @@ export default function MapScreen() {
       */}
       <Animated.View style={[styles.keyboardBackdrop, { height: keyboardPadding }]} pointerEvents="none" />
 
-      <GuideChatModal visible={touring && chatOpen} chat={chat} onClose={() => setChatOpen(false)} />
+      <GuideChatModal visible={chatVisible} chat={chat} onClose={() => setChatOpen(false)} />
+      <DestinationGuideModal
+        visible={destinationGuideOpen}
+        guide={destinationGuide}
+        onClose={() => setDestinationGuideOpen(false)}
+      />
     </View>
   );
 }

@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { DEMO_TRIP } from '@/config';
+import { CURRENT_LOCATION_LABEL, DEMO_TRIP } from '@/config';
+import { isCurrentLocationLabel } from '@/features/location/currentLocation';
 import { useSettings } from '@/state/SettingsContext';
 import { colors, spacing, typography } from '@/theme';
 
@@ -55,6 +56,8 @@ export function PlanTripSheet({ initialStart, initialEnd, onSubmit, onCancel }: 
             value={end}
             onChangeText={setEnd}
             placeholder="Where to?"
+            // With the start already filled in (current location), go straight to the destination.
+            autoFocus={!!initialStart && !initialEnd}
             returnKeyType="go"
             onSubmitEditing={submit}
           />
@@ -71,6 +74,9 @@ export function PlanTripSheet({ initialStart, initialEnd, onSubmit, onCancel }: 
       </View>
 
       <View style={styles.suggestions}>
+        {!isCurrentLocationLabel(start) && (
+          <Chip label="Use current location" icon="navigate" onPress={() => setStart(CURRENT_LOCATION_LABEL)} />
+        )}
         <Chip
           label="Demo: Brickell → Wynwood"
           onPress={() => {
@@ -93,7 +99,8 @@ export function PlanTripSheet({ initialStart, initialEnd, onSubmit, onCancel }: 
         />
       </View>
 
-      <Button label="Find scenic route" icon="navigate" onPress={submit} disabled={!canSubmit} />
+      {/* Neutral: the preview offers Fastest, Short detour and Long detour, and the user picks there. */}
+      <Button label="Choose Route" icon="navigate" onPress={submit} disabled={!canSubmit} />
     </View>
   );
 }

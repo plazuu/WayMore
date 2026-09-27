@@ -27,6 +27,7 @@ const GLYPHS = {
   image: '▦',
   cube: '◈',
   chat: '💬',
+  bot: '🤖',
   send: '↑',
   link: '↗',
 } as const;

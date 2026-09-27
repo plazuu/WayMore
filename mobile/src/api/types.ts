@@ -39,7 +39,15 @@ export interface Poi {
   description?: string;
   /** Path on our server, e.g. "/photo?name=...". Resolve with `resolveServerUrl`. */
   photoUrl?: string;
+  /**
+   * 1 = heritage, nature and landmarks; 2 = other local attractions and iconic local
+   * restaurants; 3 = standard local spots; 4 = chains and generic stops. The server
+   * already sends landmarks best first. Missing in demo data.
+   */
+  tier?: PoiTier;
 }
+
+export type PoiTier = 1 | 2 | 3 | 4;
 
 export interface RouteOption {
   distanceMeters: number;
@@ -145,4 +153,52 @@ export interface ChatReply {
   placeId: string | null;
   /** Web pages the answer cited; can be empty. */
   sources: ChatSource[];
+}
+
+// --- "Where to?" guide (POST /guide/destination, docs/destination-guide-api.md) ---
+
+export type GuideStage = 'intent' | 'category' | 'results' | 'confirmed';
+
+export interface GuideChip {
+  id: string;
+  label: string;
+}
+
+export interface GuidePlaceCard {
+  placeId: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  distanceMeters: number;
+  rating?: number;
+  userRatingCount?: number;
+  openNow?: boolean;
+  /** Relative. Resolve with `resolveServerUrl`. */
+  photoUrl?: string;
+}
+
+export interface GuideDestination {
+  placeId: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+}
+
+export interface GuideRequest {
+  conversationId?: string;
+  message?: string;
+  choice?: { chipId?: string; placeId?: string };
+  lat: number;
+  lng: number;
+}
+
+export interface GuideResponse {
+  conversationId: string;
+  stage: GuideStage;
+  reply: string;
+  chips: GuideChip[];
+  places: GuidePlaceCard[];
+  destination: GuideDestination | null;
 }

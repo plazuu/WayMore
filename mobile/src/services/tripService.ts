@@ -1,6 +1,8 @@
-import { postNarrationPregenerate, postRoute } from '@/api/endpoints';
+import { ApiError } from '@/api/client';
+import { getNarrationIntro, postNarrationPregenerate, postRoute } from '@/api/endpoints';
 import { buildMockRoute } from '@/api/mock/mockRoute';
 import { TOUR } from '@/config';
+import { getCurrentLocation, isCurrentLocationLabel } from '@/features/location/currentLocation';
 import { toNarrationPlace } from '@/features/tour/narrationText';
 import { distanceMeters } from '@/lib/geo';
 import { getTripPois } from '@/state/selectors';
@@ -18,7 +20,7 @@ export async function planRoute(start: string, end: string, settings: AppSetting
     await delay(900);
     return buildMockRoute(start, end);
   }
-  return postRoute(start, end, {
+  return postRoute(await resolveCurrentLocation(start), await resolveCurrentLocation(end), {
     sampleIntervalMeters: settings.sampleIntervalMeters,
     searchRadiusMeters: settings.searchRadiusMeters,
     preference: settings.scenicPreference,
@@ -27,10 +29,29 @@ export async function planRoute(start: string, end: string, settings: AppSetting
   });
 }
 
+/**
+ * "Current location" becomes the phone's coordinates as "lat,lng", which the
+ * server's geocoder accepts like an address.
+ */
+async function resolveCurrentLocation(place: string): Promise<string> {
+  if (!isCurrentLocationLabel(place)) return place;
+  const here = await getCurrentLocation();
+  if (!here) throw new ApiError("Couldn't get your location. Allow location access, or type a starting address.");
+  return `${here.latitude.toFixed(6)},${here.longitude.toFixed(6)}`;
+}
+
 // Voiced narrations received this session, by POI id. The server caches every
 // clip on disk, so one fetched once (by the preview warm-up or an earlier tour)
 // never needs asking for again.
 const received = new Map<string, Narration>();
+
+// The voiced trip greeting, once fetched (the same for every trip).
+let intro: Narration | undefined;
+
+/** The server's voiced trip greeting, if it has arrived. */
+export function receivedIntro(): Narration | undefined {
+  return intro;
+}
 
 /** The server's voiced narration for a POI, if it has arrived. */
 export function receivedNarration(poiId: string): Narration | undefined {
@@ -71,7 +92,16 @@ export function warmStartNarrations(route: RouteResponse): void {
     .sort((a, b) => a.distance - b.distance)
     .slice(0, TOUR.warmupMaxPlaces)
     .map(({ poi }) => poi);
+  // The greeting plays first, so fetch it before the places.
+  const introReady = intro
+    ? Promise.resolve()
+    : getNarrationIntro()
+        .then((n) => {
+          if (n.audioUrl) intro = n;
+        })
+        .catch(() => {});
   void (async () => {
+    await introReady;
     // Batches in order, so the nearest arrive first.
     for (let i = 0; i < nearest.length; i += TOUR.prefetchBatchSize) {
       await fetchNarrations(nearest.slice(i, i + TOUR.prefetchBatchSize));

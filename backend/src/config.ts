@@ -73,6 +73,44 @@ export const LIVE_GUIDE = {
   chatGrounding: true,
 };
 
+// --- Which place wins the trigger slot (live/importance.ts) ---
+// score = weight * weightFactor + rating * ratingFactor - distance * distancePenaltyPerM.
+// Distance is capped at LIVE_GUIDE.triggerDistanceM, so with these numbers a heritage
+// place (3.0) always beats a chain (0.2): the weight gap (5.6) is bigger than the widest
+// possible rating gap (2.5) plus the widest distance gap (1.25).
+export const IMPORTANCE = {
+  weights: { heritage: 3.0, local: 1.8, chain: 0.2 },
+  weightFactor: 2.0,
+  ratingFactor: 0.5,
+  distancePenaltyPerM: 0.005,
+  /** Used when a place has no rating (the app doesn't send one today), so it neither gains nor loses. */
+  defaultRating: 4.0,
+};
+
+// --- "Where to?" destination guide (/guide/destination) ---
+export const GUIDE = {
+  /** Conversations expire this long after their last request. */
+  conversationTtlMs: 30 * 60 * 1000,
+  maxMessageChars: 500,
+  /** Turns (user message + reply) kept per conversation, for the LLM's context. */
+  historyTurns: 4,
+  /** Place search via server/'s POST /places/nearby. */
+  searchRadiusMeters: 3000,
+  /** "Search farther" after no results. */
+  widenedRadiusMeters: 12_000,
+  resultsLimit: 5,
+  surprise: { radiusMeters: 5000, minRating: 4.5, limit: 3 },
+  /** A repeat of the same search within this window reuses its results. */
+  repeatSearchWindowMs: 2000,
+  /** Must leave room for the LLM budget inside server/'s 20 s proxy timeout. */
+  placesTimeoutMs: 6000,
+};
+
+/** server/'s base URL; the guide's place search lives there (it holds the Google key). */
+export function serverUrl(): string {
+  return (process.env.SERVER_URL || "http://localhost:3000").replace(/\/+$/, "");
+}
+
 // Picked by benchmarking the key's mini/nano models (see TODO.md M3): 4.1-nano
 // writes the most natural spoken lines in ~1-2 s; 4o-mini supports web_search
 // and answers with a cited source in ~3 s. Neither is a reasoning model.

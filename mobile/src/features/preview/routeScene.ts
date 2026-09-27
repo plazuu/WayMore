@@ -27,6 +27,9 @@ const TUBE_SEGMENTS = 600;
 const TUBE_RADIAL = 8;
 
 const SKY = '#0B1220';
+/** The comet highlights a top landmark within this many scene units. */
+const HIGHLIGHT_RADIUS = 18;
+const TOP_CAP_SCALE = 0.7;
 const GROUND = '#0F1A2B';
 
 interface Projected {
@@ -162,8 +165,8 @@ export function createRouteScene(coords: LatLng[], pois: TripPoi[], aspect: numb
     }
     return materials.get(color)!;
   };
-  const topRings: THREE.Mesh[] = [];
-  const topPois: { poi: TripPoi; at: THREE.Vector3 }[] = [];
+  /** Top landmarks, with the parts that react when the comet highlights them. */
+  const topPois: { poi: TripPoi; at: THREE.Vector3; cap: THREE.Mesh; ring: THREE.Mesh; glow: number }[] = [];
 
   const addBeacon = (at: THREE.Vector3, color: string, height: number, cap: number) => {
     const material = materialFor(color);
@@ -174,13 +177,14 @@ export function createRouteScene(coords: LatLng[], pois: TripPoi[], aspect: numb
     top.scale.setScalar(cap);
     top.position.set(at.x, height, at.z);
     scene.add(pillar, top);
+    return top;
   };
 
   for (const poi of pois) {
     const at = toScene(poi);
     if (poi.topRank) {
       const color = TOP_LANDMARK_COLOR[poi.topRank];
-      addBeacon(at, color, 9 - poi.topRank, 0.7);
+      const cap = addBeacon(at, color, 9 - poi.topRank, TOP_CAP_SCALE);
       const ring = new THREE.Mesh(
         ringGeometry,
         track(new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false })),
@@ -188,8 +192,7 @@ export function createRouteScene(coords: LatLng[], pois: TripPoi[], aspect: numb
       ring.rotation.x = -Math.PI / 2;
       ring.position.set(at.x, 0.05, at.z);
       scene.add(ring);
-      topRings.push(ring);
-      topPois.push({ poi, at });
+      topPois.push({ poi, at, cap, ring, glow: 0 });
     } else {
       addBeacon(at, getPoiCategory(poi).color, poi.kind === 'food' ? 1.4 : 2.2, 0.32);
     }
@@ -278,24 +281,33 @@ export function createRouteScene(coords: LatLng[], pois: TripPoi[], aspect: numb
     // Tube indices run along the curve, so a draw range "draws" the route up to the comet.
     litGeometry.setDrawRange(0, Math.floor((progress * litIndexCount) / (TUBE_RADIAL * 6)) * TUBE_RADIAL * 6);
 
-    const pulse = 1 + 0.25 * Math.sin(elapsed * 3);
-    for (const ring of topRings) ring.scale.setScalar(pulse);
 
     const fadeIn = clamp01(t / FADE_SECONDS);
     const fadeOut = clamp01((LOOP_SECONDS - t) / FADE_SECONDS);
     (fade.material as THREE.MeshBasicMaterial).opacity = 1 - Math.min(fadeIn, fadeOut);
 
-    if (t < ORBIT_END || t >= FLY_END) return null;
-    let passing: TripPoi | null = null;
-    let nearest = 14;
-    for (const { poi, at } of topPois) {
-      const d = at.distanceTo(comet.position);
-      if (d < nearest) {
-        nearest = d;
-        passing = poi;
+    // The top landmark nearest the comet (while flying) is "highlighted": the app shows its
+    // photo, and here its cap swells and its ring brightens and spreads.
+    let passing: (typeof topPois)[number] | null = null;
+    if (t >= ORBIT_END && t < FLY_END) {
+      let nearest = HIGHLIGHT_RADIUS;
+      for (const top of topPois) {
+        const d = top.at.distanceTo(comet.position);
+        if (d < nearest) {
+          nearest = d;
+          passing = top;
+        }
       }
     }
-    return passing;
+    const pulse = 1 + 0.25 * Math.sin(elapsed * 3);
+    const k = 1 - Math.exp(-dt * 6);
+    for (const top of topPois) {
+      top.glow += ((top === passing ? 1 : 0) - top.glow) * k;
+      top.cap.scale.setScalar(TOP_CAP_SCALE * (1 + 0.7 * top.glow));
+      top.ring.scale.setScalar(pulse * (1 + 1.2 * top.glow));
+      (top.ring.material as THREE.MeshBasicMaterial).opacity = 0.6 + 0.4 * top.glow;
+    }
+    return passing?.poi ?? null;
   };
 
   return {

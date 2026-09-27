@@ -4,6 +4,7 @@ import { getNarration } from "../narration/cache";
 import { durationHint, templateLine } from "../narration/scriptWriter";
 import type { Narration, Place } from "../types";
 import { bearingDeg, distanceMeters, relativeAngle, sideOf, type LatLng } from "./geo";
+import { importanceScore } from "./importance";
 
 export type Side = "left" | "right" | "ahead";
 
@@ -87,6 +88,9 @@ export class TourSession {
   readonly chat: ChatTurn[] = [];
   readonly stats: GenerationStat[] = [];
   worker: Promise<void> | null = null;
+  /** The opening greeting, once voiced; delivered on the first tick before any place. */
+  intro: LiveNarration | null = null;
+  introWork: Promise<void> | null = null;
   ended = false;
 
   constructor(places: Place[], now: number) {
@@ -110,22 +114,38 @@ export class TourSession {
 export interface SessionStoreOptions {
   now?: () => number;
   narrate?: Narrate;
+  /** The trip's opening greeting. Without it (tests), sessions start straight with places. */
+  intro?: () => Promise<Narration>;
 }
 
 export class SessionStore {
   readonly now: () => number;
   private readonly narrate: Narrate;
+  private readonly intro?: () => Promise<Narration>;
   private readonly sessions = new Map<string, TourSession>();
 
-  constructor({ now = Date.now, narrate = getNarration }: SessionStoreOptions = {}) {
+  constructor({ now = Date.now, narrate = getNarration, intro }: SessionStoreOptions = {}) {
     this.now = now;
     this.narrate = narrate;
+    this.intro = intro;
   }
 
   create(places: Place[]): TourSession {
     this.sweep();
     const session = new TourSession(places, this.now());
     this.sessions.set(session.id, session);
+    // Voice the greeting in the background (a cache hit after the first trip).
+    // A session with no places (the app's chat) never ticks, so it gets none.
+    if (this.intro && places.length) {
+      session.introWork = this.intro()
+        .then(({ placeId, text, audioUrl, durationHintS }) => {
+          if (!session.ended) session.intro = { placeId, name: "Your scenic copilot", side: "ahead", text, audioUrl, durationHintS };
+        })
+        .catch((err) => console.warn("[live] intro failed:", (err as Error).message))
+        .finally(() => {
+          session.introWork = null;
+        });
+    }
     return session;
   }
 
@@ -147,7 +167,7 @@ export class SessionStore {
 
   /** Resolves once the session's background generation queue is empty (tests and the replay script). */
   async idle(session: TourSession): Promise<void> {
-    while (session.worker) await session.worker;
+    while (session.worker || session.introWork) await (session.worker ?? session.introWork);
   }
 
   /** Waits for every live session's background generation to finish. */
@@ -183,8 +203,15 @@ export class SessionStore {
       t.behind = r !== null && Math.abs(r) > cfg.inFrontHalfAngleDeg;
     }
 
-    // Deliver at most one ready narration, dropping any that went stale.
+    // The greeting goes first, and only while nothing has been narrated yet:
+    // once the tour has started talking about places, it's too late for hello.
     let narration: LiveNarration | null = null;
+    if (s.intro) {
+      if (s.narrated.length === 0) narration = s.intro;
+      s.intro = null;
+    }
+
+    // Deliver at most one ready narration, dropping any that went stale.
     while (!narration && s.ready.length) {
       const item = s.ready.shift()!;
       const t = s.track(item.narration.placeId);
@@ -199,16 +226,23 @@ export class SessionStore {
       s.narrated.push({ ...pick(narration), at: now });
     }
 
-    // Trigger the nearest place that qualifies.
+    // Of the places that qualify, trigger the most important one (see importance.ts):
+    // a heritage sight beats a chain whatever their ratings; within a tier, the
+    // nearer and better-rated one wins. Chains still narrate when nothing else qualifies.
     const speed = input.speedMps !== undefined && input.speedMps >= 0 ? input.speedMps : 0;
     let best: Place | null = null;
+    let bestScore = -Infinity;
     for (const p of s.places) {
       const t = s.track(p.id);
       if (t.status !== "idle" || t.behind) continue;
       const d = t.distance!;
       const eta = d / Math.max(speed, cfg.etaMinSpeedMps);
       if (eta > cfg.triggerEtaS && d > cfg.triggerDistanceM) continue;
-      if (!best || d < s.track(best.id).distance!) best = p;
+      const score = importanceScore(p, d);
+      if (score > bestScore) {
+        best = p;
+        bestScore = score;
+      }
     }
     if (best) {
       const r = rel.get(best.id) ?? null;

@@ -75,6 +75,19 @@ test("closer to the destination outranks farther when visibility and quality mat
   assert.equal(ranked[0].id, "near");
 });
 
+test("a 5-star chain ranks below a 4.4 local spot, but still shows when it's the only option", () => {
+  const chain = food("tacobell", 0.0004, -80.003, { name: "Taco Bell", rating: 5, userRatingCount: 2000 });
+  const local = food("local", 0.0004, -80.003, { name: "Versailles", rating: 4.4, userRatingCount: 300 });
+  assert.deepEqual(filterFoodStops([chain, local], approach, destination).map((p) => p.id), ["local", "tacobell"]);
+  assert.deepEqual(filterFoodStops([chain], approach, destination).map((p) => p.id), ["tacobell"]);
+});
+
+test("generic fast food is down-weighted by primary type", () => {
+  const generic = food("generic", 0.0004, -80.003, { primaryType: "fast_food_restaurant", rating: 4.9 });
+  const local = food("local", 0.0004, -80.003, { rating: 4.4 });
+  assert.equal(filterFoodStops([generic, local], approach, destination)[0].id, "local");
+});
+
 test("low-quality food stops are still dropped", () => {
   const weak = food("weak", 0.0004, -80.003, { rating: 3.9 });
   assert.deepEqual(filterFoodStops([weak], approach, destination), []);

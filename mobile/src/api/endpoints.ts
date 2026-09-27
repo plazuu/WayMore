@@ -3,6 +3,8 @@ import type {
   AddressSuggestion,
   ChatReply,
   ChatRide,
+  GuideRequest,
+  GuideResponse,
   LatLng,
   Narration,
   NarrationPlace,
@@ -45,6 +47,11 @@ export function postNarrationPregenerate(places: NarrationPlace[]) {
   });
 }
 
+/** The trip's opening greeting ("I'm your scenic copilot..."), voiced like a place's line. */
+export function getNarrationIntro() {
+  return apiRequest<Narration>('/narration/intro', { timeoutMs: 30_000 });
+}
+
 export function postNarration(place: NarrationPlace) {
   return apiRequest<Narration>('/narration', { method: 'POST', body: place, timeoutMs: 30_000 });
 }
@@ -61,4 +68,9 @@ export function postTourChat(sessionId: string, message: string, ride?: ChatRide
 
 export function postTourEnd(sessionId: string) {
   return apiRequest<{ ok: boolean }>('/tour/end', { method: 'POST', body: { sessionId }, timeoutMs: 5_000 });
+}
+
+/** One turn of the "Where to?" guide. Typed text can take a few seconds (the server may ask an LLM). */
+export function postGuideDestination(body: GuideRequest) {
+  return apiRequest<GuideResponse>('/guide/destination', { method: 'POST', body, timeoutMs: 25_000 });
 }

@@ -1,12 +1,13 @@
 # API for the app team
 
-One base URL for everything: `server/` on port 3000. Locally that's `http://<laptop LAN IP>:3000` (or `http://localhost:3000` from the iOS Simulator); for the demo it's the cloudflared tunnel URL. `server/` serves route search itself and forwards `/tour/*`, `/narration/*`, `/audio/*` and `/dev/*` to the internal narration service (`backend/`, port 3001). Never call port 3001 or any Google/OpenAI API from the app: the keys stay on the server.
+One base URL for everything: `server/` on port 3000. Locally that's `http://<laptop LAN IP>:3000` (or `http://localhost:3000` from the iOS Simulator); for the demo it's the cloudflared tunnel URL. `server/` serves route search itself and forwards `/tour/*`, `/narration/*`, `/audio/*`, `/dev/*` and `/guide/*` to the internal narration service (`backend/`, port 3001). Never call port 3001 or any Google/OpenAI API from the app: the keys stay on the server.
 
 - [Errors](#errors)
 - [Route search](#route-search): `GET /health`, `POST /geocode`, `GET /autocomplete`, `POST /route`, `GET /photo`
 - [Live guide](#live-guide): app flow, `POST /tour/start`, `/tour/tick`, `/tour/chat`, `/tour/end`, `GET /dev/demo-path`
 - [Pregenerated narration](#pregenerated-narration): `POST /narration/pregenerate`, `POST /narration` (what the app's tour mode uses today)
 - [Playing narration](#playing-narration)
+- ["Where to?" guide](#where-to-guide): `POST /guide/destination`, full details in [destination-guide-api.md](destination-guide-api.md)
 
 ## Errors
 
@@ -21,7 +22,8 @@ Every error body is `{ "error": "<code or message>", "message"?: "<text>" }`.
 | 400 | `/tour/chat` | `message_too_long` | message over 500 characters |
 | 404 | `/tour/*` | `unknown_session` | session unknown (server restarted, 2 h idle, or ended): call `/tour/start` again |
 | 400 | `/narration/*` | a message | invalid place(s) |
-| 502 | `/tour/*`, `/narration/*`, `/audio/*`, `/dev/*` | `backend_unavailable` | narration service down or no answer in time (20 s; 120 s for `/narration/*`): retry |
+| 400 | `/guide/*` | `location_required`, `message_too_long`, `bad_request` | missing location, message over 500 characters, wrong field types |
+| 502 | `/tour/*`, `/narration/*`, `/audio/*`, `/dev/*`, `/guide/*` | `backend_unavailable` | narration service down or no answer in time (20 s; 120 s for `/narration/*`): retry |
 
 LLM or voice failures never produce a 5xx: you get a fallback line, `audioUrl: null`, or the chat fallback reply.
 
@@ -115,6 +117,7 @@ interface Poi {
   userRatingCount?: number;
   priceLevel?: string;       // "$".."$$$$" or "Free"; foodStops only
   cuisine?: string;          // foodStops only
+  tier?: 1 | 2 | 3 | 4;      // 1 heritage/nature/landmarks, 2 local attractions + iconic local food, 3 local spots, 4 chains; landmarks[] come sorted by tier rank (server/src/lib/tiers.ts)
   description?: string;      // Google's editorial summary; only ~1/3 of POIs have one
   photoUrl?: string;         // relative, e.g. "/photo?name=places%2F..."; prefix with the base URL
 }
@@ -177,10 +180,11 @@ interface Place {
   tagline?: string;
   description?: string;
   facts?: string[];   // the more facts, the better the line
+  rating?: number;    // Google rating 1-5; helps pick which place to narrate
 }
 ```
 
-From `/route`: `landmarks[]` become `kind: "landmark"`, `foodStops[]` become `kind: "restaurant"`; pass `description` through. `side` is ignored (the server computes it). Empty `places` is allowed; at most 200.
+From `/route`: `landmarks[]` become `kind: "landmark"`, `foodStops[]` become `kind: "restaurant"`; pass `description` and `rating` through. When several places are in range on the same tick, the one narrated first is the most important (`backend/src/live/importance.ts`): heritage sights (parks, museums, historic sites, arenas, towers...) always beat chains and generic stops (fast food, gas, pharmacies), whatever their ratings; within a tier, nearer and better rated wins. A missing `rating` counts as 4.0. `side` is ignored (the server computes it). Empty `places` is allowed; at most 200.
 
 ### `POST /tour/tick`
 
@@ -272,6 +276,10 @@ The app's current tour mode: ask for places' lines and audio a few at a time as 
 
 Same for one place: the body is one `Place`, the response one `Narration`.
 
+### `GET /narration/intro`
+
+The trip's opening greeting, a fixed line ("Hey, I'm your scenic copilot! ...") voiced once and cached: `{ "placeId": "intro", "text": "...", "audioUrl": "/audio/intro-<hash>.mp3" | null, "durationHintS": 8 }`. Play it before the first place. The app fetches it while the route preview is open. The live guide does the same by itself: `/tour/tick` returns it (`placeId: "intro"`) on the first tick, before any place, unless a place has already been narrated.
+
 ## Playing narration
 
 1. **One at a time, never overlapping.** A narration that arrives while another plays goes to the end of a queue. The server already drops stale ones, so play everything you receive.
@@ -321,3 +329,9 @@ export const narrationControl = {
   resume() { pausedRef.current = false; playNext(); },
 };
 ```
+
+## "Where to?" guide
+
+`POST /guide/destination` is a short chat that helps an undecided user pick a destination (hungry or sightseeing → type → nearest good places → pick one); the origin is the phone's current location. The server owns the flow and returns the reply, quick-reply chips, place cards and, at the end, the destination. Request/response shapes, example JSON for every step and how to build the screen: [destination-guide-api.md](destination-guide-api.md).
+
+Its place search is `server/`'s `POST /places/nearby` (`{ lat, lng, types?, query?, radiusMeters?, limit?, minRating?, requireOpen?, sortBy? }` → `{ places: PlaceCard[] }`), which the guide calls internally; the app doesn't need it.
