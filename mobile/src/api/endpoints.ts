@@ -3,6 +3,7 @@ import type {
   AddressSuggestion,
   ChatReply,
   ChatRide,
+  LatLng,
   Narration,
   NarrationPlace,
   RouteResponse,
@@ -16,10 +17,11 @@ export function getHealth() {
 }
 
 /** Address-autocomplete suggestions as the user types. Pass the same `sessionToken` for
- * every keystroke of one search (Google bills per session when it's reused consistently). */
-export function getAutocomplete(input: string, sessionToken?: string) {
+ * every keystroke of one search (Google bills per session when it's reused consistently).
+ * `bias` ranks places near that point first. */
+export function getAutocomplete(input: string, sessionToken?: string, bias?: LatLng) {
   return apiRequest<{ suggestions: AddressSuggestion[] }>('/autocomplete', {
-    query: { input, sessionToken },
+    query: { input, sessionToken, lat: bias?.latitude, lng: bias?.longitude },
     timeoutMs: 10_000,
   });
 }

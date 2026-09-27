@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ComponentProps, type Ref } from 'reac
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { getAutocomplete } from '@/api/endpoints';
+import { DEFAULT_MAP_REGION } from '@/config';
 import { colors, radii, shadows, spacing, typography } from '@/theme';
 
 import type { AddressSuggestion } from '@/api/types';
@@ -10,6 +11,8 @@ type AddressAutocompleteFieldProps = ComponentProps<typeof TextInput> & { ref?: 
 
 const MIN_QUERY_LENGTH = 2;
 const DEBOUNCE_MS = 250;
+/** Suggestions near the demo area rank first (the user's GPS isn't tracked while planning). */
+const SEARCH_BIAS = { latitude: DEFAULT_MAP_REGION.latitude, longitude: DEFAULT_MAP_REGION.longitude };
 
 function newSessionToken() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -36,21 +39,25 @@ export function AddressAutocompleteField({
   const requestId = useRef(0);
 
   useEffect(() => {
+    // Any newer value invalidates a pending or in-flight request, so a late reply
+    // can't reopen the dropdown or leave the spinner on.
+    const id = ++requestId.current;
     if (skipNextFetch.current) {
       skipNextFetch.current = false;
+      setLoading(false);
       return;
     }
     const query = typeof value === 'string' ? value.trim() : '';
     if (query.length < MIN_QUERY_LENGTH) {
       setSuggestions([]);
+      setLoading(false);
       return;
     }
 
-    const id = ++requestId.current;
     setLoading(true);
     const timer = setTimeout(async () => {
       try {
-        const { suggestions: results } = await getAutocomplete(query, sessionToken.current);
+        const { suggestions: results } = await getAutocomplete(query, sessionToken.current, SEARCH_BIAS);
         if (id === requestId.current) setSuggestions(results);
       } catch {
         if (id === requestId.current) setSuggestions([]);
@@ -63,8 +70,11 @@ export function AddressAutocompleteField({
   }, [value]);
 
   const handleSelect = (suggestion: AddressSuggestion) => {
-    skipNextFetch.current = true;
+    requestId.current++;
+    // Only skip if the value will actually change; otherwise the effect never runs to clear the flag.
+    skipNextFetch.current = suggestion.text !== value;
     setSuggestions([]);
+    setLoading(false);
     onChangeText?.(suggestion.text);
     sessionToken.current = newSessionToken();
   };

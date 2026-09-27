@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -66,6 +66,10 @@ export default function MapScreen() {
     }),
   });
   const [chatOpen, setChatOpen] = useState(false);
+
+  useEffect(() => {
+    if (!touring) setChatOpen(false);
+  }, [touring]);
 
   const renderSheet = () => {
     switch (state.phase) {
@@ -154,26 +158,27 @@ export default function MapScreen() {
       )}
 
       {touring && (
-        <>
-          <AskGuideButton
-            onPress={() => setChatOpen(true)}
-            style={[styles.askGuide, { bottom: sheetHeight + spacing.md }]}
+        <AskGuideButton
+          onPress={() => setChatOpen(true)}
+          style={[styles.askGuide, { bottom: sheetHeight + spacing.md }]}
+        />
+      )}
+
+      {touring && (
+        <View style={[styles.topBarRight, { top: insets.top + spacing.sm }]} pointerEvents="box-none">
+          <IconButton
+            icon={narrationMuted ? 'volumeOff' : 'volumeOn'}
+            variant="floating"
+            accessibilityLabel={narrationMuted ? 'Unmute tour guide' : 'Mute tour guide'}
+            onPress={() =>
+              updateSettings(
+                narrationMuted
+                  ? { narrateLandmarks: true, narrateFood: true }
+                  : { narrateLandmarks: false, narrateFood: false },
+              )
+            }
           />
-          <View style={[styles.topBarRight, { top: insets.top + spacing.sm }]} pointerEvents="box-none">
-            <IconButton
-              icon={narrationMuted ? 'volumeOff' : 'volumeOn'}
-              variant="floating"
-              accessibilityLabel={narrationMuted ? 'Unmute tour guide' : 'Mute tour guide'}
-              onPress={() =>
-                updateSettings(
-                  narrationMuted
-                    ? { narrateLandmarks: true, narrateFood: true }
-                    : { narrateLandmarks: false, narrateFood: false },
-                )
-              }
-            />
-          </View>
-          </>
+        </View>
       )}
 
       <KeyboardAvoidingView behavior="padding" style={styles.sheetArea} pointerEvents="box-none">
@@ -188,7 +193,7 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   topBar: { position: 'absolute', left: spacing.lg, flexDirection: 'row', gap: spacing.sm },
-  askGuide: { position: 'absolute', right: spacing.lg },
   topBarRight: { position: 'absolute', right: spacing.lg, flexDirection: 'row', gap: spacing.sm },
+  askGuide: { position: 'absolute', right: spacing.lg },
   sheetArea: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, justifyContent: 'flex-end' },
 });

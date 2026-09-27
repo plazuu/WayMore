@@ -10,6 +10,10 @@ export const NATURE_TYPES = ["beach", "park", "city_park", "national_park", "sta
 export const LANDMARK_ONLY_TYPES = ["tourist_attraction", "historical_landmark", "monument", "sculpture", "plaza", "fountain", "bridge", "observation_deck", "cultural_landmark"];
 export const LANDMARK_TYPES = [...LANDMARK_ONLY_TYPES, ...NATURE_TYPES];
 export const FOOD_TYPES = ["restaurant", "cafe"];
+/** Places that sit on the water; road near them counts as waterfront. */
+export const WATER_TYPES = ["marina", "beach", "fishing_pier", "ferry_terminal", "island"];
+/** Water places a car can drive past, so routing through one hugs the shore (islands can be dead ends). */
+export const WATER_WAYPOINT_TYPES = ["marina", "beach", "fishing_pier"];
 
 const PRICE_LEVEL_DISPLAY: Record<string, string> = {
   PRICE_LEVEL_FREE: "Free",
@@ -41,6 +45,7 @@ export interface Poi {
   distanceFromDestinationMeters?: number;
   /** How far the place is from the route line; set for landmarks only. */
   distanceFromRouteMeters?: number;
+  primaryType?: string;
   rating?: number;
   userRatingCount?: number;
   priceLevel?: string;
@@ -58,6 +63,7 @@ export async function searchNearby(
   radiusMeters: number,
   includedTypes: string[],
   maxResultCount = 10,
+  rankPreference: "POPULARITY" | "DISTANCE" = "POPULARITY",
 ): Promise<Poi[]> {
   if (!GOOGLE_MAPS_API_KEY) {
     throw new GoogleMapsError("GOOGLE_MAPS_API_KEY is not configured", 500);
@@ -69,11 +75,12 @@ export async function searchNearby(
       "Content-Type": "application/json",
       "X-Goog-Api-Key": GOOGLE_MAPS_API_KEY,
       "X-Goog-FieldMask":
-        "places.id,places.displayName,places.location,places.rating,places.userRatingCount,places.types,places.priceLevel,places.photos,places.editorialSummary",
+        "places.id,places.displayName,places.location,places.primaryType,places.rating,places.userRatingCount,places.types,places.priceLevel,places.photos,places.editorialSummary",
     },
     body: JSON.stringify({
       includedTypes,
       maxResultCount,
+      rankPreference,
       locationRestriction: {
         circle: {
           center: { latitude: center.lat, longitude: center.lng },
@@ -98,6 +105,7 @@ export async function searchNearby(
       lat: place.location.latitude,
       lng: place.location.longitude,
       types,
+      primaryType: place.primaryType,
       rating: place.rating,
       userRatingCount: place.userRatingCount,
       priceLevel: place.priceLevel ? PRICE_LEVEL_DISPLAY[place.priceLevel] : undefined,

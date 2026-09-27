@@ -53,6 +53,9 @@ export function curatedToPoi(c: CuratedLandmark, distanceFromRouteMeters?: numbe
     lat: c.lat,
     lng: c.lng,
     types: KIND_TYPES[c.kind],
+    // Hand-picked, so they qualify as real attractions for the app's top-3 pins
+    // (which only accept certain primary types).
+    primaryType: c.kind === "historic" ? "historical_landmark" : c.kind === "art" ? "sculpture" : "tourist_attraction",
     rating: c.weight,
     userRatingCount: 10000,
     description: c.note,

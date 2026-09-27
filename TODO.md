@@ -22,7 +22,7 @@ Branch: `feature/route-scoring`
   - [x] Restaurants/cafes (rating ≥ 4.0 filter applied; chain-filtering still not implemented — no reliable "is this a chain" signal from Places data yet, revisit if it matters for the demo)
   - [x] Sampling interval + search radius are tunable (`POST /route?sampleIntervalMeters=&searchRadiusMeters=`, defaults 1200m/500m, see `server/src/config.ts`) — see M2 item to expose this as an in-app setting
 - [ ] Web search enrichment — pull extra landmark/restaurant mentions and descriptions Places misses
-- [x] Scoring algorithm — rank candidate routes by landmark rating-weighted score (sum of landmark ratings; restaurants are suggested stops, not route-scoring inputs) — `server/src/lib/scoring.ts`
+- [x] Scoring algorithm — scenic = within an extra-time budget of the fastest, least non-waterfront highway, then waterfront distance + landmark ratings (parks discounted; restaurants are suggested stops, not route-scoring inputs; food-type landmarks only count within 1 km of the drop-off); extra candidates via no-highway and waterfront-waypoint routes — `server/src/lib/scoring.ts`
 - [x] Select winning route + ordered POI list — done as part of the normal/scenic split below
 - [x] Enrichment (partial) — `GET /photo?name=` proxies Places Photo Media server-side so the API key never reaches the client (`server/src/routes/photo.ts`); `description`/`cuisine`/`priceLevel` pulled from Places' own `editorialSummary`/`types`/`priceLevel` fields (`server/src/lib/places.ts`) — only ~1/3 of landmarks have a Google-authored summary, so most POIs still have no description until web search or an LLM call fills the gap (see M3 LLM narration + Stretch)
 - [x] `POST /route` — `{start, end}` → `{normal: {polyline, distanceMeters, durationSeconds, landmarks[], foodStops[]}, scenic: {...same shape...}, extraTimeSeconds}` — single call returns both the fastest and highest-scoring route plus their time difference, so the app's normal/scenic toggle needs no second request. Each POI carries `{id, name, lat, lng, types, rating, userRatingCount, priceLevel?, cuisine?, description?, photoUrl?}` — the app maps these to the `Place` shape the live guide takes in `/tour/start` (see `docs/api.md`)
@@ -31,13 +31,8 @@ Branch: `feature/route-scoring`
 Branch: `feature/mobile-map`
 *Depends on M1*
 
-<<<<<<< HEAD
-- [ ] Start/end input screen with Places Autocomplete — input sheet done (`mobile/src/components/sheets/PlanTripSheet.tsx`, plain text); autocomplete still needs a server proxy endpoint
-- [x] Map screen (`react-native-maps`) rendering polyline + POI pins — `mobile/src/components/map/`. Map tiles need a dev build with `GOOGLE_MAPS_ANDROID_API_KEY` (Expo Go's key is rejected), see the Mobile app section of `README.md`
-=======
 - [x] Start/end input screen with Places Autocomplete — `mobile/src/components/ui/AddressAutocompleteField.tsx` queries the server's `/autocomplete` proxy (`server/src/routes/autocomplete.ts`), debounced with session tokens
-- [x] Map screen (`react-native-maps`) rendering polyline + POI pins — `mobile/src/components/map/`. Map tiles need a dev build with `GOOGLE_MAPS_ANDROID_API_KEY` (Expo Go's key is rejected), see `mobile/README.md`
->>>>>>> origin/main
+- [x] Map screen (`react-native-maps`) rendering polyline + POI pins — `mobile/src/components/map/`. Map tiles need a dev build with `GOOGLE_MAPS_ANDROID_API_KEY` (Expo Go's key is rejected), see the Mobile app section of `README.md`
 - [x] Normal/Scenic toggle — switches which route object from the single `/route` response is rendered (no second request needed); show `extraTimeSeconds` as "+N min" next to the toggle
 - [x] Distinct pin icon/color for landmarks vs. food stops
 - [x] Filter toggle in UI — "Show: Landmarks / Food / Both"
