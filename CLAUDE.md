@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A mobile app that finds the most scenic route between two points, surfaces landmarks and restaurants along the way, and narrates them aloud as you pass (live tour guide), with a text chat for passenger questions. `README.md` covers setup, running and the demo; `docs/api.md` is the API for the app team; `TODO.md` is the source of truth for what's built vs. not yet started (milestones M0–M4).
+WayMore: a mobile app that finds the most scenic route between two points, surfaces landmarks and restaurants along the way, and narrates them aloud as you pass (live tour guide), with a text chat for passenger questions. `README.md` covers setup, running and the demo; `docs/api.md` is the API for the app team; `TODO.md` is the source of truth for what's built vs. not yet started (milestones M0–M4).
 
 ## Repo layout — three separate packages, three separate dependency trees
 

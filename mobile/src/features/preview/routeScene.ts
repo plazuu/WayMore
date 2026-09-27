@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
-import { POI_KIND_STYLE, TOP_LANDMARK_COLOR } from '@/components/poi/poiStyle';
+import { getPoiCategory } from '@/components/poi/poiCategory';
+import { TOP_LANDMARK_COLOR } from '@/components/poi/poiStyle';
 import { colors } from '@/theme';
 
 import type { LatLng, TripPoi } from '@/api/types';
@@ -190,7 +191,7 @@ export function createRouteScene(coords: LatLng[], pois: TripPoi[], aspect: numb
       topRings.push(ring);
       topPois.push({ poi, at });
     } else {
-      addBeacon(at, POI_KIND_STYLE[poi.kind].color, poi.kind === 'food' ? 1.4 : 2.2, 0.32);
+      addBeacon(at, getPoiCategory(poi).color, poi.kind === 'food' ? 1.4 : 2.2, 0.32);
     }
   }
 

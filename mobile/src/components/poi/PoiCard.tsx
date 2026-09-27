@@ -4,7 +4,7 @@ import { formatRating } from '@/lib/format';
 import { colors, radii, spacing, typography } from '@/theme';
 
 import { PoiPhoto } from './PoiPhoto';
-import { POI_KIND_STYLE } from './poiStyle';
+import { getPoiCategory } from './poiCategory';
 
 import type { TripPoi } from '@/api/types';
 
@@ -17,18 +17,19 @@ export const POI_CARD_WIDTH = 168;
 
 /** Compact card for the horizontal "along this route" list. */
 export function PoiCard({ poi, onPress }: PoiCardProps) {
-  const kind = POI_KIND_STYLE[poi.kind];
-  const meta = poi.kind === 'food' ? [poi.cuisine, poi.priceLevel].filter(Boolean).join(' · ') : kind.label;
+  const category = getPoiCategory(poi);
+  const meta =
+    poi.kind === 'food' ? [poi.cuisine ?? category.label, poi.priceLevel].filter(Boolean).join(' · ') : category.label;
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${poi.name}, ${kind.label}`}
+      accessibilityLabel={`${poi.name}, ${category.label}`}
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.8 }]}
     >
       <PoiPhoto poi={poi} style={styles.photo} maxWidthPx={400} />
-      <View style={[styles.kindBar, { backgroundColor: kind.color }]} />
+      <View style={[styles.kindBar, { backgroundColor: category.color }]} />
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={1}>
           {poi.name}

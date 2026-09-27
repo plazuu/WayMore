@@ -1,3 +1,5 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
@@ -6,6 +8,10 @@ import { TripProvider } from '@/state/TripContext';
 import { colors } from '@/theme';
 
 export default function RootLayout() {
+  // Map pins are snapshotted on Android, so the POI glyph font must be ready before any pin renders.
+  const [fontsLoaded, fontError] = useFonts(MaterialCommunityIcons.font);
+  if (!fontsLoaded && !fontError) return null;
+
   return (
     <SettingsProvider>
       <TripProvider>
