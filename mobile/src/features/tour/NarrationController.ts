@@ -56,6 +56,17 @@ export class NarrationController {
     this.playNext();
   }
 
+  /** Whether a POI is waiting in the queue (not yet playing). */
+  isQueued(poiId: string): boolean {
+    return this.queue.some((queued) => queued.poi.id === poiId);
+  }
+
+  /** Swaps in a better narration (the server's voiced one) for a POI still waiting in the queue. */
+  upgrade(poiId: string, narration: Narration) {
+    const item = this.queue.find((queued) => queued.poi.id === poiId);
+    if (item) item.narration = narration;
+  }
+
   pause() {
     if (this.paused) return;
     this.paused = true;

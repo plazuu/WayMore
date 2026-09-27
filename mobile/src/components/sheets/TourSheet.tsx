@@ -4,10 +4,11 @@ import type { TourGuide } from '@/features/tour/useTourGuide';
 import { formatDistance } from '@/lib/format';
 import { colors, radii, spacing, typography } from '@/theme';
 
+import { getPoiCategory } from '../poi/poiCategory';
+import { PoiIcon } from '../poi/PoiIcon';
 import { POI_KIND_STYLE } from '../poi/poiStyle';
 import { Button } from '../ui/Button';
 import { Chip } from '../ui/Chip';
-import { Icon } from '../ui/Icon';
 
 interface TourSheetProps {
   guide: TourGuide;
@@ -32,6 +33,7 @@ export function TourSheet({
   onEnd,
 }: TourSheetProps) {
   const { current, next, paused, visitedCount, total } = guide;
+  const currentCategory = current ? getPoiCategory(current.poi) : null;
 
   return (
     <View style={styles.container}>
@@ -47,10 +49,10 @@ export function TourSheet({
         <View style={[styles.nowCard, { backgroundColor: colors.dangerSoft }]}>
           <Text style={[typography.body, { color: colors.danger }]}>{locationError}</Text>
         </View>
-      ) : current ? (
-        <View style={[styles.nowCard, { backgroundColor: POI_KIND_STYLE[current.poi.kind].softColor }]}>
+      ) : current && currentCategory ? (
+        <View style={[styles.nowCard, { backgroundColor: currentCategory.softColor }]}>
           <View style={styles.nowHeader}>
-            <Icon name={POI_KIND_STYLE[current.poi.kind].icon} color={POI_KIND_STYLE[current.poi.kind].color} />
+            <PoiIcon name={currentCategory.icon} color={currentCategory.color} />
             <Text style={typography.heading} numberOfLines={1}>
               {current.poi.name}
             </Text>

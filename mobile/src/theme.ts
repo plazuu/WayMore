@@ -23,6 +23,16 @@ export const colors = {
   landmarkSoft: '#E1F2F0',
   food: '#D9620B',
   foodSoft: '#FCEBDD',
+  /** Per-category pin colors, after Apple Maps (see components/poi/poiCategory.ts). */
+  poi: {
+    food: '#F0801A',
+    culture: '#E0457B',
+    landmark: '#9A7B55',
+    nature: '#2FA84F',
+    water: '#1E88E5',
+    faith: '#7D8590',
+    shopping: '#E6A700',
+  },
   /** The route's top three landmarks. */
   topLandmark1: '#C9971C',
   topLandmark2: '#7C8A99',

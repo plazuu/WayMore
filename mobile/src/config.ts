@@ -45,10 +45,25 @@ export const TOUR = {
   /** Extra time allowed past a clip's duration hint before giving up on it. */
   playbackGraceMs: 5_000,
   simulatedTickMs: 1_000,
+  /**
+   * Server narration (line + Speechify voice) is fetched for POIs within this
+   * distance, nearest first, so each clip is ready before the car reaches it.
+   * The voice is generated one clip at a time (~2-3 s each), so the range has to
+   * cover that much driving past the POIs inside it.
+   */
+  prefetchRadiusMeters: 2_000,
+  /** POIs per /narration/pregenerate request. Small, so the nearest ones arrive quickly. */
+  prefetchBatchSize: 3,
+  /** After a failed request, wait this long before trying again. */
+  prefetchRetryMs: 10_000,
+  /**
+   * While the route preview is open, narration for up to `warmupMaxPlaces` POIs
+   * within this distance of the start is generated ahead, since several are
+   * already in trigger range at the tour's first position.
+   */
+  warmupRadiusMeters: 500,
+  warmupMaxPlaces: 12,
 };
-
-/** Server caps /narration/pregenerate at 100 places per request. */
-export const MAX_NARRATION_PLACES = 100;
 
 /** Passenger chat with the guide (POST /tour/chat). */
 export const CHAT = {
