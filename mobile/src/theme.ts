@@ -23,6 +23,10 @@ export const colors = {
   landmarkSoft: '#E1F2F0',
   food: '#D9620B',
   foodSoft: '#FCEBDD',
+  /** The route's top three landmarks. */
+  topLandmark1: '#C9971C',
+  topLandmark2: '#7C8A99',
+  topLandmark3: '#A8612F',
 
   routeActive: '#0B7A75',
   routeInactive: '#9AA3AF',

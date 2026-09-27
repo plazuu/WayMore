@@ -29,6 +29,8 @@ export interface Poi {
   types: string[];
   rating?: number;
   userRatingCount?: number;
+  /** Google's main category for the place, e.g. "museum" or "service". */
+  primaryType?: string;
   /** "$".."$$$$" or "Free"; food stops only. */
   priceLevel?: string;
   /** e.g. "Mediterranean"; food stops only. */
@@ -46,6 +48,10 @@ export interface RouteOption {
   polyline: string;
   samplePointCount: number;
   score: number;
+  /** Road along the water (server-side scenic scoring; debug). */
+  waterfrontMeters?: number;
+  /** Highway not along the water (server-side scenic scoring; debug). */
+  highwayMeters?: number;
   landmarks: Poi[];
   foodStops: Poi[];
 }
@@ -55,7 +61,7 @@ export interface RouteResponse {
   end: GeoPoint;
   /** Fastest candidate. */
   normal: RouteOption;
-  /** Highest landmark score. May be the same route as `normal`. */
+  /** Most waterfront and landmarks within the extra-time budget, avoiding plain highways. May be the same route as `normal`. */
   scenic: RouteOption;
   /** scenic.durationSeconds - normal.durationSeconds, can be 0. */
   extraTimeSeconds: number;
@@ -96,7 +102,11 @@ export type PoiKind = 'landmark' | 'food';
 /** A POI tagged with which list it came from, so landmarks and food stops can share one list/map layer. */
 export interface TripPoi extends Poi {
   kind: PoiKind;
+  /** 1–3 for the route's top three landmarks (see `getTripPois`). */
+  topRank?: TopRank;
 }
+
+export type TopRank = 1 | 2 | 3;
 
 // ---- Live guide chat (docs/api.md#live-guide) ----
 

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -66,6 +66,10 @@ export default function MapScreen() {
     }),
   });
   const [chatOpen, setChatOpen] = useState(false);
+
+  useEffect(() => {
+    if (!touring) setChatOpen(false);
+  }, [touring]);
 
   const renderSheet = () => {
     switch (state.phase) {

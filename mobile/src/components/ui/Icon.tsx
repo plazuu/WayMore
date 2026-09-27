@@ -25,6 +25,7 @@ const GLYPHS = {
   chevronRight: '›',
   navigate: '➤',
   image: '▦',
+  cube: '◈',
   chat: '💬',
   send: '↑',
   link: '↗',
