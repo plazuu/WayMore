@@ -86,7 +86,9 @@ Optional query params (clamped server-side): `sampleIntervalMeters` (default 120
 4. The highest score wins: the sum of landmark ratings, with hand-picked stops counting 2x and nature stops 1.5x.
 5. `foodStops` never affect the choice. They are only suggested for the last mile: one search around the destination plus small searches along the route's final stretch, ranked by quality, closeness to the destination and a bonus when visible from the road (`visibleFromRoute`).
 
-Optional query param: `maxExtraMinutes` (0-60) overrides the time budget.
+Optional query params:
+- `maxExtraMinutes` (0-60) overrides the time budget.
+- `preference` (`city` | `balanced` | `nature`, default `balanced`) sets what the scenic route favors. It scales landmark scores (nature stops for `nature`, landmarks and architecture for `city`), orders the landmark list before the cap, chooses which detours are tried, and for `city`/`nature` searches only that kind of place. The chosen value is echoed as `preference` in the response.
  `extraTimeSeconds` = scenic minus normal duration (can be 0). One call serves the normal/scenic toggle.
 
 ```ts

@@ -40,9 +40,18 @@ export const SCENIC_BASE_EXTRA_SECONDS = 300;
 export const SCENIC_EXTRA_FRACTION = 0.2;
 // Upper bound for the maxExtraMinutes request param on POST /route.
 export const MAX_EXTRA_MINUTES_LIMIT = 60;
-// Scenic scoring multiplier for nature stops, so the scenic route favors
-// driving by a beach or waterfront.
-export const NATURE_SCORE_WEIGHT = 1.5;
+// The user's scenic preference (POST /route?preference=...): how much a nature
+// stop (beach, park, marina, waterfront view) and a city stop (landmark, art,
+// architecture, street) count toward the score, the landmark list and the
+// detours tried. "balanced" is the default and leans slightly to nature.
+export type ScenicPreference = "city" | "balanced" | "nature";
+export const SCENIC_PREFERENCES: ScenicPreference[] = ["city", "balanced", "nature"];
+export const DEFAULT_SCENIC_PREFERENCE: ScenicPreference = "balanced";
+export const PREFERENCE_WEIGHTS: Record<ScenicPreference, { nature: number; city: number }> = {
+  city: { nature: 0.5, city: 1.5 },
+  balanced: { nature: 1.5, city: 1 },
+  nature: { nature: 2.5, city: 0.5 },
+};
 
 // Restaurants are only suggested near the destination ("last mile"), within
 // this radius of it. Nothing is searched for food along the route.

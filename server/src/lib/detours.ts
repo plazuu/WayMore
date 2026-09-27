@@ -3,9 +3,11 @@ import { curatedOnRoute, orderAlongRoute, rankMisses, type CuratedLandmark } fro
 import { decodePolyline } from "./polyline";
 import { scoreCandidate } from "./scoring";
 import {
+  DEFAULT_SCENIC_PREFERENCE,
   DETOUR_TIME_PENALTY_PER_MINUTE,
   MAX_CURATED_TRIALS,
   MAX_CURATED_WAYPOINTS,
+  type ScenicPreference,
 } from "../config";
 
 export type DetourCandidate = RouteCandidate & { viaIds: string[] };
@@ -28,14 +30,15 @@ export async function findScenicDetours(
   end: LatLng,
   fastest: RouteCandidate,
   budgetSeconds: number,
+  preference: ScenicPreference = DEFAULT_SCENIC_PREFERENCE,
 ): Promise<DetourCandidate[]> {
   const basePath = decodePolyline(fastest.encodedPolyline);
-  const misses = rankMisses(basePath, MAX_CURATED_TRIALS);
+  const misses = rankMisses(basePath, MAX_CURATED_TRIALS, undefined, preference);
   if (misses.length === 0) return [];
 
   const value = (path: LatLng[], viaIds: string[], durationSeconds: number) => {
     const extraMinutes = Math.max(0, durationSeconds - fastest.durationSeconds) / 60;
-    return scoreCandidate(curatedOnRoute(path, viaIds)) - extraMinutes * DETOUR_TIME_PENALTY_PER_MINUTE;
+    return scoreCandidate(curatedOnRoute(path, viaIds), preference) - extraMinutes * DETOUR_TIME_PENALTY_PER_MINUTE;
   };
   const baseValue = value(basePath, [], fastest.durationSeconds);
 

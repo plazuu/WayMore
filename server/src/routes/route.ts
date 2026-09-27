@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { geocodeAddress, computeRoutes, GoogleMapsError, type RouteCandidate } from "../lib/googleMaps";
 import { decodePolyline, sampleAlongPath, haversineMeters, lastStretch } from "../lib/polyline";
-import { searchNearby, dedupeById, LANDMARK_TYPES, FOOD_TYPES, type Poi } from "../lib/places";
-import { scoreCandidate } from "../lib/scoring";
+import { searchNearby, dedupeById, landmarkTypesFor, FOOD_TYPES, type Poi } from "../lib/places";
+import { landmarkValue, scoreCandidate } from "../lib/scoring";
 import { filterLandmarks, filterFoodStops } from "./filter";
 import { curatedOnRoute } from "../lib/curated";
 import { findScenicDetours } from "../lib/detours";
@@ -15,6 +15,9 @@ import {
   MIN_SEARCH_RADIUS_METERS,
   MAX_SEARCH_RADIUS_METERS,
   MAX_LANDMARKS_PER_ROUTE,
+  DEFAULT_SCENIC_PREFERENCE,
+  SCENIC_PREFERENCES,
+  type ScenicPreference,
   LAST_MILE_RADIUS_METERS,
   FOOD_APPROACH_SAMPLE_METERS,
   FOOD_APPROACH_SEARCH_RADIUS_METERS,
@@ -22,6 +25,12 @@ import {
 } from "../config";
 
 export const routeRouter = Router();
+
+function parsePreference(value: unknown): ScenicPreference {
+  return typeof value === "string" && (SCENIC_PREFERENCES as string[]).includes(value)
+    ? (value as ScenicPreference)
+    : DEFAULT_SCENIC_PREFERENCE;
+}
 
 function parseNumberParam(value: unknown, fallback: number, min: number, max: number): number {
   if (typeof value !== "string") return fallback;
@@ -80,6 +89,7 @@ routeRouter.post("/route", async (req, res) => {
   );
 
   // How much longer the user will accept for a more scenic drive, in minutes.
+  const preference = parsePreference(req.query.preference);
   const maxExtraMinutes =
     typeof req.query.maxExtraMinutes === "string"
       ? parseNumberParam(req.query.maxExtraMinutes, 0, 0, MAX_EXTRA_MINUTES_LIMIT)
@@ -95,7 +105,7 @@ routeRouter.post("/route", async (req, res) => {
 
     // Cross-reference the hand-picked landmark list against the fastest route and
     // search for a detour through great ones it misses (see lib/detours.ts).
-    candidates.push(...(await findScenicDetours(startGeo, endGeo, fastestBase, allowedExtra)));
+    candidates.push(...(await findScenicDetours(startGeo, endGeo, fastestBase, allowedExtra, preference)));
 
     // Restaurants only matter for the last mile. One search around the
     // destination is shared by every candidate (they all end there); each route
@@ -109,7 +119,7 @@ routeRouter.post("/route", async (req, res) => {
         const samplePoints = sampleAlongPath(points, sampleIntervalMeters);
 
         const landmarkResults = await Promise.all(
-          samplePoints.map((pt) => searchNearby(pt, searchRadiusMeters, LANDMARK_TYPES)),
+          samplePoints.map((pt) => searchNearby(pt, searchRadiusMeters, landmarkTypesFor(preference))),
         );
 
         const approach = lastStretch(points, LAST_MILE_RADIUS_METERS);
@@ -122,10 +132,12 @@ routeRouter.post("/route", async (req, res) => {
 
         const curatedStops = curatedOnRoute(points, candidate.viaIds);
         // Drop Places results that duplicate a curated stop (within ~250 m).
-        const placesLandmarks = filterLandmarks(dedupeById(landmarkResults.flat()), points).filter(
+        const placesLandmarks = filterLandmarks(dedupeById(landmarkResults.flat()), points, preference).filter(
           (poi) => !curatedStops.some((c) => haversineMeters(c, poi) < 250),
         );
-        const landmarks = [...curatedStops, ...placesLandmarks].slice(0, MAX_LANDMARKS_PER_ROUTE);
+        const landmarks = [...curatedStops, ...placesLandmarks]
+          .sort((a, b) => landmarkValue(b, preference) - landmarkValue(a, preference))
+          .slice(0, MAX_LANDMARKS_PER_ROUTE);
         // A place can match both type lists (e.g. a landmark market); it stays a
         // landmark only, since the app keys pins and narration by place id.
         const landmarkIds = new Set(landmarks.map((poi) => poi.id));
@@ -135,7 +147,7 @@ routeRouter.post("/route", async (req, res) => {
           samplePointCount: samplePoints.length,
           landmarks,
           foodStops: filterFoodStops(foodPool, approach, endGeo).filter((poi) => !landmarkIds.has(poi.id)),
-          score: scoreCandidate(landmarks),
+          score: scoreCandidate(landmarks, preference),
         };
       }),
     );
@@ -159,6 +171,7 @@ routeRouter.post("/route", async (req, res) => {
       normal: toRouteResponse(normal),
       scenic: toRouteResponse(scenic),
       extraTimeSeconds: scenic.durationSeconds - normal.durationSeconds,
+      preference,
     });
   } catch (err) {
     if (err instanceof GoogleMapsError) {

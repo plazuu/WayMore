@@ -1,9 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { Poi } from "./places";
+import { landmarkValue } from "./scoring";
 import { distanceToPathMeters, haversineMeters, type LatLng } from "./polyline";
 import {
   CURATED_CORRIDOR_METERS,
+  DEFAULT_SCENIC_PREFERENCE,
+  type ScenicPreference,
   MAX_CURATED_TRIALS,
   MAX_LANDMARK_DISTANCE_FROM_ROUTE_METERS,
   MAX_NATURE_DISTANCE_FROM_ROUTE_METERS,
@@ -81,15 +84,20 @@ export function curatedOnRoute(route: LatLng[], forcedIds: string[] = [], all = 
 }
 
 // Curated landmarks the route misses but that sit within the corridor of it,
-// best first. Ranked by worth minus a detour penalty (about one rating point
-// per 3 km off the route).
-export function rankMisses(route: LatLng[], max: number, all = loadCurated()): CuratedLandmark[] {
+// best first. Ranked by worth to this user (see scoring.ts) minus a detour
+// penalty (about one rating point per 3 km off the route).
+export function rankMisses(
+  route: LatLng[],
+  max: number,
+  all = loadCurated(),
+  preference: ScenicPreference = DEFAULT_SCENIC_PREFERENCE,
+): CuratedLandmark[] {
   const onRoute = new Set(curatedOnRoute(route, [], all).map((p) => p.id.replace("curated:", "")));
   return all
     .filter((c) => !onRoute.has(c.id))
     .map((c) => ({ c, score: 0, distance: distanceToPathMeters(c, route) }))
     .filter(({ distance }) => distance <= CURATED_CORRIDOR_METERS)
-    .map((x) => ({ ...x, score: x.c.weight - x.distance / 3000 }))
+    .map((x) => ({ ...x, score: landmarkValue(curatedToPoi(x.c), preference) / 2 - x.distance / 3000 }))
     .sort((a, b) => b.score - a.score)
     .slice(0, max)
     .map(({ c }) => c);

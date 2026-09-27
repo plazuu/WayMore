@@ -67,11 +67,16 @@ export interface RouteResponse {
   extraTimeSeconds: number;
 }
 
+/** What the user wants to see: city landmarks and architecture, nature and waterfront, or a mix. */
+export type ScenicPreference = 'city' | 'balanced' | 'nature';
+
 export interface RouteTuning {
   sampleIntervalMeters?: number;
   searchRadiusMeters?: number;
   /** How much longer than the fastest route the scenic route may take. */
   maxExtraMinutes?: number;
+  /** Which kind of scenery to favor. */
+  preference?: ScenicPreference;
 }
 
 export interface NarrationPlace {

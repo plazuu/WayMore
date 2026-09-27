@@ -21,6 +21,7 @@ export async function planRoute(start: string, end: string, settings: AppSetting
   return postRoute(start, end, {
     sampleIntervalMeters: settings.sampleIntervalMeters,
     searchRadiusMeters: settings.searchRadiusMeters,
+    preference: settings.scenicPreference,
     // 0 means automatic: leave it out so the server scales it with the trip.
     maxExtraMinutes: settings.maxExtraMinutes > 0 ? settings.maxExtraMinutes : undefined,
   });
