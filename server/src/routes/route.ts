@@ -84,7 +84,12 @@ routeRouter.post("/route", async (req, res) => {
         ]);
 
         const landmarks = dedupeById(landmarkResults.flat());
-        const foodStops = dedupeById(foodResults.flat()).filter((poi) => (poi.rating ?? 0) >= 4.0);
+        // A place can match both type lists (e.g. a landmark market); it stays a
+        // landmark only, since the app keys pins and narration by place id.
+        const landmarkIds = new Set(landmarks.map((poi) => poi.id));
+        const foodStops = dedupeById(foodResults.flat()).filter(
+          (poi) => (poi.rating ?? 0) >= 4.0 && !landmarkIds.has(poi.id),
+        );
 
         return {
           ...candidate,
