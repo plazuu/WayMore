@@ -115,6 +115,7 @@ interface Poi {
   userRatingCount?: number;
   priceLevel?: string;       // "$".."$$$$" or "Free"; foodStops only
   cuisine?: string;          // foodStops only
+  tier?: 1 | 2 | 3 | 4;      // 1 heritage/nature/landmarks, 2 local attractions + iconic local food, 3 local spots, 4 chains; landmarks[] come sorted by tier rank (server/src/lib/tiers.ts)
   description?: string;      // Google's editorial summary; only ~1/3 of POIs have one
   photoUrl?: string;         // relative, e.g. "/photo?name=places%2F..."; prefix with the base URL
 }

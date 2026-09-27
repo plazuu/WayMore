@@ -39,7 +39,15 @@ export interface Poi {
   description?: string;
   /** Path on our server, e.g. "/photo?name=...". Resolve with `resolveServerUrl`. */
   photoUrl?: string;
+  /**
+   * 1 = heritage, nature and landmarks; 2 = other local attractions and iconic local
+   * restaurants; 3 = standard local spots; 4 = chains and generic stops. The server
+   * already sends landmarks best first. Missing in demo data.
+   */
+  tier?: PoiTier;
 }
+
+export type PoiTier = 1 | 2 | 3 | 4;
 
 export interface RouteOption {
   distanceMeters: number;

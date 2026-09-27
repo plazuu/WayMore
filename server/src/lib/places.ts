@@ -50,6 +50,8 @@ export interface Poi {
   userRatingCount?: number;
   priceLevel?: string;
   cuisine?: string;
+  /** 1 (heritage, nature, landmarks) to 4 (chains); set on /route results, see lib/tiers.ts. */
+  tier?: 1 | 2 | 3 | 4;
   description?: string;
   /** True for hand-picked stops from data/landmarks.json (see lib/curated.ts). */
   curated?: boolean;
