@@ -42,6 +42,7 @@ for what you'll see out the window, with a guide riding along who knows what eve
 | <img src="docs/screenshots/03-poi.png" width="270" alt="Landmark detail card"> | <img src="docs/screenshots/04-touring.png" width="270" alt="Live narration while touring"> |
 | **3. Browse the stops.** Tap a pin or a card for the photo, the rating and review count, and the description — cuisine and price level for restaurants. Pins cluster as the map zooms out. | **4. Drive.** "Touring" counts the places passed, shows the line being spoken right now, and gives you a pause button plus separate mute chips for landmarks and food. The **Ask Guide** pill opens a chat that answers with the ride as context and cites its sources. |
 
+Here is a link to the live demo: https://youtu.be/NJsJCEr9Lhs?is=NCp1NQlg61mxiHj7 
 Not pictured: the **3D** button on the preview sheet plays a three.js fly-through of the whole
 drive before you leave, naming each place as the camera passes it.
 
