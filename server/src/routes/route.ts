@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { geocodeAddress, computeRoutes, GoogleMapsError, type RouteCandidate } from "../lib/googleMaps";
-import { decodePolyline, sampleAlongPath, haversineMeters } from "../lib/polyline";
+import { decodePolyline, sampleAlongPath, haversineMeters, lastStretch } from "../lib/polyline";
 import { searchNearby, dedupeById, LANDMARK_TYPES, FOOD_TYPES, type Poi } from "../lib/places";
 import { scoreCandidate } from "../lib/scoring";
 import { filterLandmarks, filterFoodStops } from "./filter";
@@ -16,6 +16,8 @@ import {
   MAX_SEARCH_RADIUS_METERS,
   MAX_LANDMARKS_PER_ROUTE,
   LAST_MILE_RADIUS_METERS,
+  FOOD_APPROACH_SAMPLE_METERS,
+  FOOD_APPROACH_SEARCH_RADIUS_METERS,
   MAX_EXTRA_MINUTES_LIMIT,
 } from "../config";
 
@@ -95,15 +97,11 @@ routeRouter.post("/route", async (req, res) => {
     // search for a detour through great ones it misses (see lib/detours.ts).
     candidates.push(...(await findScenicDetours(startGeo, endGeo, fastestBase, allowedExtra)));
 
-    // Restaurants only matter for the last mile: one search around the
-    // destination, shared by every candidate (they all end there). Nothing is
-    // searched for food along the way.
-    const lastMileFood = filterFoodStops(
-      dedupeById(await searchNearby(endGeo, LAST_MILE_RADIUS_METERS, FOOD_TYPES, 20)).map((poi) => ({
-        ...poi,
-        distanceFromDestinationMeters: Math.round(haversineMeters(poi, endGeo)),
-      })),
-    );
+    // Restaurants only matter for the last mile. One search around the
+    // destination is shared by every candidate (they all end there); each route
+    // adds a few small searches along its own final approach, then ranks by what
+    // is visible from it.
+    const lastMileFood = dedupeById(await searchNearby(endGeo, LAST_MILE_RADIUS_METERS, FOOD_TYPES, 20));
 
     const enrichedCandidates = await Promise.all(
       candidates.map(async (candidate) => {
@@ -113,6 +111,14 @@ routeRouter.post("/route", async (req, res) => {
         const landmarkResults = await Promise.all(
           samplePoints.map((pt) => searchNearby(pt, searchRadiusMeters, LANDMARK_TYPES)),
         );
+
+        const approach = lastStretch(points, LAST_MILE_RADIUS_METERS);
+        const approachFood = await Promise.all(
+          sampleAlongPath(approach, FOOD_APPROACH_SAMPLE_METERS).map((pt) =>
+            searchNearby(pt, FOOD_APPROACH_SEARCH_RADIUS_METERS, FOOD_TYPES),
+          ),
+        );
+        const foodPool = dedupeById([...lastMileFood, ...approachFood.flat()]);
 
         const curatedStops = curatedOnRoute(points, candidate.viaIds);
         // Drop Places results that duplicate a curated stop (within ~250 m).
@@ -125,7 +131,7 @@ routeRouter.post("/route", async (req, res) => {
           ...candidate,
           samplePointCount: samplePoints.length,
           landmarks,
-          foodStops: lastMileFood,
+          foodStops: filterFoodStops(foodPool, approach, endGeo),
           score: scoreCandidate(landmarks),
         };
       }),

@@ -10,6 +10,10 @@ import {
   MIN_FOOD_RATING,
   MIN_FOOD_REVIEWS,
   MAX_FOOD_STOPS_PER_ROUTE,
+  LAST_MILE_RADIUS_METERS,
+  FOOD_VISIBLE_FROM_ROUTE_METERS,
+  FOOD_VISIBLE_WEIGHT,
+  FOOD_FAR_SCORE_FACTOR,
 } from "../config";
 
 // Google tags many places with several types (a school can also be
@@ -103,6 +107,14 @@ export function qualityScore(poi: Poi): number {
   return (poi.rating ?? 0) * Math.log10((poi.userRatingCount ?? 0) + 1);
 }
 
+function passesQuality(poi: Poi, minRating: number, minReviews: number): boolean {
+  return (
+    !poi.types.some((t) => EXCLUDED_TYPES.has(t)) &&
+    (poi.rating ?? 0) >= minRating &&
+    (poi.userRatingCount ?? 0) >= minReviews
+  );
+}
+
 function filterPois(
   pois: Poi[],
   minRating: number,
@@ -110,9 +122,7 @@ function filterPois(
   maxCount: number,
 ): Poi[] {
   return pois
-    .filter((poi) => !poi.types.some((t) => EXCLUDED_TYPES.has(t)))
-    .filter((poi) => (poi.rating ?? 0) >= minRating)
-    .filter((poi) => (poi.userRatingCount ?? 0) >= minReviews)
+    .filter((poi) => passesQuality(poi, minRating, minReviews))
     .sort((a, b) => qualityScore(b) - qualityScore(a))
     .slice(0, maxCount);
 }
@@ -131,6 +141,22 @@ export function filterLandmarks(pois: Poi[], route: LatLng[]): Poi[] {
   return filterPois(visible, MIN_LANDMARK_RATING, MIN_LANDMARK_REVIEWS, MAX_LANDMARKS_PER_ROUTE);
 }
 
-export function filterFoodStops(pois: Poi[]): Poi[] {
-  return filterPois(pois, MIN_FOOD_RATING, MIN_FOOD_REVIEWS, MAX_FOOD_STOPS_PER_ROUTE);
+// Restaurants only matter on the final approach. `finalStretch` is the last
+// part of this route's path, `destination` where the trip ends. A place close to
+// that stretch is visible from the car and scores higher; closeness to the
+// destination also counts (the walk from the drop-off).
+export function filterFoodStops(pois: Poi[], finalStretch: LatLng[], destination: LatLng): Poi[] {
+  return pois
+    .filter((poi) => passesQuality(poi, MIN_FOOD_RATING, MIN_FOOD_REVIEWS))
+    .map((poi) => {
+      const fromRoute = Math.round(distanceToPathMeters(poi, finalStretch));
+      const fromDestination = Math.round(distanceToPathMeters(poi, [destination]));
+      const visibleFromRoute = fromRoute <= FOOD_VISIBLE_FROM_ROUTE_METERS;
+      const closeness = 1 - (1 - FOOD_FAR_SCORE_FACTOR) * Math.min(1, fromDestination / LAST_MILE_RADIUS_METERS);
+      const score = qualityScore(poi) * (visibleFromRoute ? FOOD_VISIBLE_WEIGHT : 1) * closeness;
+      return { poi: { ...poi, distanceFromRouteMeters: fromRoute, distanceFromDestinationMeters: fromDestination, visibleFromRoute }, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_FOOD_STOPS_PER_ROUTE)
+    .map(({ poi }) => poi);
 }

@@ -106,3 +106,16 @@ export function distanceToPathMeters(point: LatLng, path: LatLng[]): number {
   }
   return best;
 }
+
+// The last `meters` of the path, ending at its final point: what the car
+// drives on its final approach.
+export function lastStretch(path: LatLng[], meters: number): LatLng[] {
+  if (path.length < 2) return path;
+  const tail: LatLng[] = [path[path.length - 1]];
+  let covered = 0;
+  for (let i = path.length - 2; i >= 0 && covered < meters; i--) {
+    covered += haversineMeters(path[i], tail[tail.length - 1]);
+    tail.push(path[i]);
+  }
+  return tail.reverse();
+}
