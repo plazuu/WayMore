@@ -78,12 +78,15 @@ Optional query params (clamped server-side): `sampleIntervalMeters` (default 120
 }
 ```
 
-`normal` is the fastest candidate; they can be the same route. `scenic` is chosen as follows (`server/src/lib/scoring.ts`, tunables in `SCENIC` in `server/src/config.ts`):
+`normal` is the fastest candidate; they can be the same route. `scenic` is chosen as follows (`server/src/routes/route.ts`, `server/src/lib/detours.ts`, `server/src/lib/scoring.ts`; tunables in `server/src/config.ts`):
 
-1. Besides Google's alternatives, the server asks for a no-highway route and routes through up to two waterfront spots (marinas, beaches, piers) near the middle of the trip.
-2. Only candidates within the extra-time budget are eligible: max(8 min, 50% of the fastest), capped at 25 min.
-3. Of those, only the ones with the least non-waterfront highway survive (within 500 m), so a plain highway is used only when every eligible route needs it. Causeways and other highways along the water don't count against a route.
-4. The highest score wins: 40 points per km of waterfront (road within 400 m of a marina, beach, pier, ferry terminal or island, or a road named like a causeway/bayshore/ocean drive), plus the sum of landmark ratings (plain parks at 30%), minus 3 per extra minute. Food never affects the choice beyond 1 km of the drop-off: `foodStops` aren't scored at all, and landmarks that are also food places (restaurants tagged as tourist attractions) only count within 1 km of the destination.
+1. Besides Google's alternatives, the server cross-references a hand-picked landmark list (`server/data/landmarks.json`) against the fastest route. Great ones it misses but that are close get a trial detour route through a pass-through waypoint, and the search keeps adding waypoints (up to 3) while the value improves.
+2. Only candidates within the extra-time budget are eligible: the request's `maxExtraMinutes` if given, otherwise 5 minutes plus 20% of the fastest route.
+3. Landmarks must be visible from the road (within 150 m of the route, 300 m for nature), have a genuinely outdoor type (no schools, indoor attractions, restaurants, clubs) and a rating of at least 4.3 with 100+ reviews. At most 8 per route.
+4. The highest score wins: the sum of landmark ratings, with hand-picked stops counting 2x and nature stops 1.5x.
+5. `foodStops` never affect the choice. They are only suggested for the last mile: one search around the destination plus small searches along the route's final stretch, ranked by quality, closeness to the destination and a bonus when visible from the road (`visibleFromRoute`).
+
+Optional query param: `maxExtraMinutes` (0-60) overrides the time budget.
  `extraTimeSeconds` = scenic minus normal duration (can be 0). One call serves the normal/scenic toggle.
 
 ```ts
@@ -93,8 +96,6 @@ interface RouteOption {
   polyline: string;          // Google encoded polyline; decode client-side
   samplePointCount: number;  // debug
   score: number;             // debug: scenic score
-  waterfrontMeters: number;  // debug: road along the water
-  highwayMeters: number;     // debug: highway not along the water
   landmarks: Poi[];
   foodStops: Poi[];
 }
@@ -105,7 +106,10 @@ interface Poi {
   lat: number;
   lng: number;
   types: string[];           // raw Google Places types
-  rating?: number;           // foodStops are pre-filtered to >= 4.0
+  rating?: number;           // foodStops are pre-filtered (rating >= 4.3, >= 100 reviews) and limited to the last mile
+  distanceFromDestinationMeters?: number; // foodStops only: within ~1.6 km of the destination
+  visibleFromRoute?: boolean; // foodStops only: within ~100 m of the route's final stretch, so seen from the car
+  distanceFromRouteMeters?: number; // landmarks: from the route; foodStops: from the final stretch
   userRatingCount?: number;
   priceLevel?: string;       // "$".."$$$$" or "Free"; foodStops only
   cuisine?: string;          // foodStops only
@@ -248,7 +252,7 @@ A 2-minute drive (40 points) north on Biscayne Blvd past Bayside Marketplace (ri
 
 ## Pregenerated narration
 
-The app's current tour mode: ask for every place's line and audio when the trip starts, then trigger playback on the phone as the car approaches each place. The [live guide](#live-guide) is the server-driven alternative that also adds chat; both share the same disk cache and voice.
+The app's current tour mode: ask for places' lines and audio a few at a time as they come within range (2 km, nearest first; the ones near the start while the route preview is open), then trigger playback on the phone as the car approaches each place. Asking for a whole route at once is slow: voices are generated one at a time, so a route with ~80 places takes minutes. The [live guide](#live-guide) is the server-driven alternative that also adds chat; both share the same disk cache and voice.
 
 ### `POST /narration/pregenerate`
 

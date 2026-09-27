@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Keyboard, Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AskGuideButton } from '@/components/chat/AskGuideButton';
@@ -20,13 +20,44 @@ import { shortPlaceName } from '@/lib/format';
 import { useSettings } from '@/state/SettingsContext';
 import { useTrip } from '@/state/TripContext';
 import { useActiveRoute } from '@/state/useActiveRoute';
-import { spacing } from '@/theme';
+import { colors, spacing } from '@/theme';
 
 import type { LatLng, TripPoi } from '@/api/types';
 
 // Stable empty values so hooks don't see a "new" array every render.
 const NO_COORDS: LatLng[] = [];
 const NO_POIS: TripPoi[] = [];
+
+/**
+ * Bottom padding that tracks the keyboard's real height and animation, driven
+ * directly by `keyboardWillShow`/`keyboardWillHide` (iOS only — these fire
+ * before the keyboard moves, unlike the `did` variants). `KeyboardAvoidingView`
+ * derives its shift from the view's layout frame, which under-reports here and
+ * leaves a gap of map visible above the keyboard; this bypasses that by using
+ * the keyboard's own reported height instead.
+ */
+function useKeyboardPadding() {
+  const padding = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+
+    const animateTo = (height: number, duration: number) =>
+      Animated.timing(padding, { toValue: height, duration, useNativeDriver: false }).start();
+
+    const showSub = Keyboard.addListener('keyboardWillShow', (e) =>
+      animateTo(e.endCoordinates.height, e.duration || 250),
+    );
+    const hideSub = Keyboard.addListener('keyboardWillHide', (e) => animateTo(0, e.duration || 250));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [padding]);
+
+  return padding;
+}
 
 /**
  * The whole trip happens on this screen: a full-screen map with a bottom sheet
@@ -38,6 +69,7 @@ export default function MapScreen() {
   const { settings, updateSettings } = useSettings();
   const active = useActiveRoute();
   const [sheetHeight, setSheetHeight] = useState(0);
+  const keyboardPadding = useKeyboardPadding();
 
   const touring = state.phase === 'touring';
   const narrationMuted = !settings.narrateLandmarks && !settings.narrateFood;
@@ -50,7 +82,6 @@ export default function MapScreen() {
   const guide = useTourGuide({
     active: touring,
     pois: active?.allPois ?? NO_POIS,
-    narrations: state.narrations,
     position,
     settings,
   });
@@ -121,7 +152,7 @@ export default function MapScreen() {
         return (
           <TourSheet
             guide={guide}
-            narrationsReady={state.narrationsReady}
+            narrationsReady={!guide.fetchingNarration}
             locationError={locationError}
             narrateLandmarks={settings.narrateLandmarks}
             narrateFood={settings.narrateFood}
@@ -181,9 +212,18 @@ export default function MapScreen() {
         </View>
       )}
 
-      <KeyboardAvoidingView behavior="padding" style={styles.sheetArea} pointerEvents="box-none">
+      <Animated.View style={[styles.sheetArea, { paddingBottom: keyboardPadding }]} pointerEvents="box-none">
         <Sheet onHeightChange={setSheetHeight}>{renderSheet()}</Sheet>
-      </KeyboardAvoidingView>
+      </Animated.View>
+
+      {/*
+        Opaque filler for the space the keyboard occupies. iOS keyboards are
+        translucent and their rounded top corners leave the map showing
+        through. It uses the sheet's own background colour and renders *after*
+        the sheet so it also covers the sheet's drop shadow — otherwise the
+        shadow darkens the top of the filler and gives away the seam.
+      */}
+      <Animated.View style={[styles.keyboardBackdrop, { height: keyboardPadding }]} pointerEvents="none" />
 
       <GuideChatModal visible={touring && chatOpen} chat={chat} onClose={() => setChatOpen(false)} />
     </View>
@@ -196,4 +236,5 @@ const styles = StyleSheet.create({
   topBarRight: { position: 'absolute', right: spacing.lg, flexDirection: 'row', gap: spacing.sm },
   askGuide: { position: 'absolute', right: spacing.lg },
   sheetArea: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, justifyContent: 'flex-end' },
+  keyboardBackdrop: { position: 'absolute', right: 0, bottom: 0, left: 0, backgroundColor: colors.background },
 });

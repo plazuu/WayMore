@@ -66,6 +66,8 @@ App (`mobile/`), current tour mode (pregenerated narration via `/narration/prege
 - [x] Proximity engine — distance + bearing check per POI (only trigger when ahead of you, not behind)
 - [x] Narration queue — sequential playback, mark POI "visited" so it never re-triggers
 - [x] TTS playback — plays server MP3s (`expo-audio`) when `audioUrl` is set, falls back to `expo-speech`
+- [x] Narration fetched by lookahead (`TOUR.prefetchRadiusMeters`, batches of 3, nearest first) plus a warm-up of the places near the start on the route preview, instead of the whole route at tour start (that took minutes and timed out on ~80-place routes, so the tour fell back to the device voice)
+- [ ] Dense stretches trigger places faster than clips can play (~8 s each, one at a time), so about half are dropped as already passed; could rank by rating or shorten lines
 - [x] Narration tone: landmarks = informative, food stops = suggestion ("coming up on your right...")
 - [x] "Now touring" UI — current/next POI banner, mute toggle (landmarks and food stops mutable separately)
 

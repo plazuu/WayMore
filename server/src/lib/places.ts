@@ -3,7 +3,12 @@ import type { LatLng } from "./polyline";
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
-export const LANDMARK_TYPES = ["tourist_attraction", "park", "museum", "historical_landmark"];
+// Searched for along the route. Deliberately outdoor / street-visible: what a
+// passenger can enjoy through the window, not what is impressive inside
+// (museums, galleries and aquariums are left out on purpose).
+export const NATURE_TYPES = ["beach", "park", "city_park", "national_park", "state_park", "botanical_garden", "garden", "marina", "scenic_spot"];
+export const LANDMARK_ONLY_TYPES = ["tourist_attraction", "historical_landmark", "monument", "sculpture", "plaza", "fountain", "bridge", "observation_deck", "cultural_landmark"];
+export const LANDMARK_TYPES = [...LANDMARK_ONLY_TYPES, ...NATURE_TYPES];
 export const FOOD_TYPES = ["restaurant", "cafe"];
 /** Places that sit on the water; road near them counts as waterfront. */
 export const WATER_TYPES = ["marina", "beach", "fishing_pier", "ferry_terminal", "island"];
@@ -34,12 +39,20 @@ export interface Poi {
   lat: number;
   lng: number;
   types: string[];
+  /** Food stops only: close enough to the final stretch of the route to be seen from the car. */
+  visibleFromRoute?: boolean;
+  /** Food stops only: how far the place is from the destination. */
+  distanceFromDestinationMeters?: number;
+  /** How far the place is from the route line; set for landmarks only. */
+  distanceFromRouteMeters?: number;
   primaryType?: string;
   rating?: number;
   userRatingCount?: number;
   priceLevel?: string;
   cuisine?: string;
   description?: string;
+  /** True for hand-picked stops from data/landmarks.json (see lib/curated.ts). */
+  curated?: boolean;
   // Relative path on this server, not a direct Google URL — the API key
   // stays server-side, so the mobile app must load photos through /photo.
   photoUrl?: string;
