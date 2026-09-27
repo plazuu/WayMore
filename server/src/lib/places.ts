@@ -35,6 +35,8 @@ export interface Poi {
   lat: number;
   lng: number;
   types: string[];
+  /** Food stops only: how far the place is from the destination. */
+  distanceFromDestinationMeters?: number;
   /** How far the place is from the route line; set for landmarks only. */
   distanceFromRouteMeters?: number;
   rating?: number;

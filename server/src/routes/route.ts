@@ -15,6 +15,7 @@ import {
   MIN_SEARCH_RADIUS_METERS,
   MAX_SEARCH_RADIUS_METERS,
   MAX_LANDMARKS_PER_ROUTE,
+  LAST_MILE_RADIUS_METERS,
   MAX_EXTRA_MINUTES_LIMIT,
 } from "../config";
 
@@ -94,15 +95,24 @@ routeRouter.post("/route", async (req, res) => {
     // search for a detour through great ones it misses (see lib/detours.ts).
     candidates.push(...(await findScenicDetours(startGeo, endGeo, fastestBase, allowedExtra)));
 
+    // Restaurants only matter for the last mile: one search around the
+    // destination, shared by every candidate (they all end there). Nothing is
+    // searched for food along the way.
+    const lastMileFood = filterFoodStops(
+      dedupeById(await searchNearby(endGeo, LAST_MILE_RADIUS_METERS, FOOD_TYPES, 20)).map((poi) => ({
+        ...poi,
+        distanceFromDestinationMeters: Math.round(haversineMeters(poi, endGeo)),
+      })),
+    );
+
     const enrichedCandidates = await Promise.all(
       candidates.map(async (candidate) => {
         const points = decodePolyline(candidate.encodedPolyline);
         const samplePoints = sampleAlongPath(points, sampleIntervalMeters);
 
-        const [landmarkResults, foodResults] = await Promise.all([
-          Promise.all(samplePoints.map((pt) => searchNearby(pt, searchRadiusMeters, LANDMARK_TYPES))),
-          Promise.all(samplePoints.map((pt) => searchNearby(pt, searchRadiusMeters, FOOD_TYPES))),
-        ]);
+        const landmarkResults = await Promise.all(
+          samplePoints.map((pt) => searchNearby(pt, searchRadiusMeters, LANDMARK_TYPES)),
+        );
 
         const curatedStops = curatedOnRoute(points, candidate.viaIds);
         // Drop Places results that duplicate a curated stop (within ~250 m).
@@ -110,13 +120,12 @@ routeRouter.post("/route", async (req, res) => {
           (poi) => !curatedStops.some((c) => haversineMeters(c, poi) < 250),
         );
         const landmarks = [...curatedStops, ...placesLandmarks].slice(0, MAX_LANDMARKS_PER_ROUTE);
-        const foodStops = filterFoodStops(dedupeById(foodResults.flat()));
 
         return {
           ...candidate,
           samplePointCount: samplePoints.length,
           landmarks,
-          foodStops,
+          foodStops: lastMileFood,
           score: scoreCandidate(landmarks),
         };
       }),

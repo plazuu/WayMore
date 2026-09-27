@@ -44,6 +44,9 @@ export const MAX_EXTRA_MINUTES_LIMIT = 60;
 // driving by a beach or waterfront.
 export const NATURE_SCORE_WEIGHT = 1.5;
 
+// Restaurants are only suggested near the destination ("last mile"), within
+// this radius of it. Nothing is searched for food along the route.
+export const LAST_MILE_RADIUS_METERS = 1600;
 export const MIN_FOOD_RATING = 4.3;
 export const MIN_FOOD_REVIEWS = 100;
 export const MAX_FOOD_STOPS_PER_ROUTE = 5;

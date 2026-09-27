@@ -95,7 +95,8 @@ interface Poi {
   lat: number;
   lng: number;
   types: string[];           // raw Google Places types
-  rating?: number;           // foodStops are pre-filtered to >= 4.0
+  rating?: number;           // foodStops are pre-filtered (rating >= 4.3, >= 100 reviews) and limited to the last mile
+  distanceFromDestinationMeters?: number; // foodStops only: within ~1.6 km of the destination
   userRatingCount?: number;
   priceLevel?: string;       // "$".."$$$$" or "Free"; foodStops only
   cuisine?: string;          // foodStops only
